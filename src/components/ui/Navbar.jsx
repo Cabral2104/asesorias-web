@@ -1,11 +1,12 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { LogOut, User, Menu, X, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 
 export default function Navbar() {
     const { isAuthenticated, logout, user } = useAuth();
+    const navigate = useNavigate();
     const [isScrolled, setIsScrolled] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -15,10 +16,15 @@ export default function Navbar() {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
+
     return (
         <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${isScrolled ? 'bg-slate-950/80 backdrop-blur-md border-b border-white/5 py-3' : 'bg-transparent py-5'}`}>
             <div className="container mx-auto px-6 flex justify-between items-center">
-                {/* Nuevo Logo / Nombre */}
+                
                 <Link to="/" className="flex items-center gap-2 group">
                     <div className="p-2 bg-indigo-500/20 rounded-lg group-hover:bg-indigo-500/30 transition-colors">
                         <Sparkles className="w-5 h-5 text-indigo-400" />
@@ -28,14 +34,10 @@ export default function Navbar() {
                     </span>
                 </Link>
 
-                {/* Desktop Menu */}
                 <div className="hidden md:flex items-center gap-8">
-                    {['Inicio', 'Cursos', 'Mentores', 'Comunidad'].map((item) => (
-                        <a key={item} href={`#${item.toLowerCase()}`} className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
-                            {item}
-                        </a>
-                    ))}
-
+                    <Link to="/" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">Inicio</Link>
+                    <Link to="/cursos" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">Cursos</Link>
+                    
                     <div className="h-4 w-px bg-white/10 mx-2"></div>
 
                     {!isAuthenticated ? (
@@ -49,25 +51,27 @@ export default function Navbar() {
                         </div>
                     ) : (
                         <div className="flex items-center gap-4">
-                            <Link to="/dashboard" className="flex items-center gap-2 text-sm font-medium text-indigo-300 hover:text-indigo-200 bg-indigo-500/10 px-4 py-2 rounded-full border border-indigo-500/20">
+                            {/* CAMBIO: Ahora lleva a /profile */}
+                            <Link 
+                                to="/profile"
+                                className="flex items-center gap-2 text-sm font-medium text-indigo-300 hover:text-indigo-200 bg-indigo-500/10 px-4 py-2 rounded-full border border-indigo-500/20 hover:bg-indigo-500/20 transition-all"
+                            >
                                 <User className="w-4 h-4" />
-                                Mi Panel
+                                Mi Perfil
                             </Link>
-                            <button onClick={logout} className="text-slate-400 hover:text-red-400 transition-colors" title="Cerrar Sesión">
+                            <button onClick={handleLogout} className="text-slate-400 hover:text-red-400 transition-colors" title="Cerrar Sesión">
                                 <LogOut className="w-5 h-5" />
                             </button>
                         </div>
                     )}
                 </div>
-
-                {/* Mobile Toggle */}
-                <button className="md:hidden text-white" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+                
+                 <button className="md:hidden text-white" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
                     {isMobileMenuOpen ? <X /> : <Menu />}
                 </button>
             </div>
-
-            {/* Mobile Menu */}
-            <AnimatePresence>
+            
+             <AnimatePresence>
                 {isMobileMenuOpen && (
                     <motion.div 
                         initial={{ opacity: 0, height: 0 }}
@@ -76,16 +80,16 @@ export default function Navbar() {
                         className="md:hidden bg-slate-950 border-b border-white/10 overflow-hidden"
                     >
                         <div className="px-6 py-6 flex flex-col gap-4">
-                            <Link to="/" className="text-slate-300 hover:text-white text-lg">Inicio</Link>
-                            <Link to="/cursos" className="text-slate-300 hover:text-white text-lg">Explorar Cursos</Link>
-                            <div className="h-px bg-white/10 my-2"></div>
-                            {!isAuthenticated ? (
+                             {isAuthenticated ? (
                                 <>
-                                    <Link to="/login" className="text-white font-semibold">Iniciar Sesión</Link>
-                                    <Link to="/register" className="text-indigo-400 font-semibold">Crear Cuenta</Link>
+                                    <Link to="/profile" className="text-slate-300 hover:text-white">Mi Perfil</Link>
+                                    <button onClick={handleLogout} className="text-red-400 text-left">Cerrar Sesión</button>
                                 </>
                             ) : (
-                                <Link to="/dashboard" className="text-indigo-400">Ir al Dashboard</Link>
+                                <>
+                                    <Link to="/login" className="text-white">Ingresar</Link>
+                                    <Link to="/register" className="text-indigo-400">Registrarse</Link>
+                                </>
                             )}
                         </div>
                     </motion.div>

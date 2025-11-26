@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
-import { BookOpen, Search, PlayCircle } from 'lucide-react';
+import { BookOpen, Search, PlayCircle, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function StudentDashboard() {
@@ -8,23 +8,29 @@ export default function StudentDashboard() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Consumimos el endpoint de "Mis Cursos"
         axiosClient.get('/estudiante/mis-cursos')
             .then(res => setMisCursos(res.data))
             .catch(console.error)
             .finally(() => setLoading(false));
     }, []);
 
+    // CORRECCIÓN: pt-32 para bajar el contenido y que no lo tape el header
     return (
-        <div className="container mx-auto py-10 px-6 animate-fade-in">
-            <div className="flex justify-between items-center mb-10">
+        <div className="container mx-auto pt-32 pb-10 px-6 animate-fade-in">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-white">Mi Aprendizaje</h1>
                     <p className="text-slate-400 mt-1">Bienvenido de nuevo, continúa donde lo dejaste.</p>
                 </div>
-                <Link to="/cursos" className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-5 py-2.5 rounded-xl text-white font-semibold transition-all shadow-lg shadow-indigo-500/20">
-                    <Search size={18} /> Explorar Catálogo
-                </Link>
+                <div className="flex gap-3">
+                    {/* Botón para solicitar ser asesor (Lo usaremos pronto) */}
+                    <Link to="/solicitar-asesor" className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-5 py-2.5 rounded-xl text-white font-semibold transition-all border border-white/10">
+                        <GraduationCap size={18} /> Quiero ser Asesor
+                    </Link>
+                    <Link to="/cursos" className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-5 py-2.5 rounded-xl text-white font-semibold transition-all shadow-lg shadow-indigo-500/20">
+                        <Search size={18} /> Explorar Catálogo
+                    </Link>
+                </div>
             </div>
 
             {loading ? (
