@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { BookOpen, Search, PlayCircle, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import Pagination from '../../components/ui/Pagination';
 
 export default function StudentDashboard() {
     const [misCursos, setMisCursos] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 6;
 
     useEffect(() => {
         axiosClient.get('/estudiante/mis-cursos')
@@ -14,7 +17,11 @@ export default function StudentDashboard() {
             .finally(() => setLoading(false));
     }, []);
 
-    // CORRECCIÓN: pt-32 para bajar el contenido y que no lo tape el header
+    // Paginación
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentCursos = misCursos.slice(indexOfFirstItem, indexOfLastItem);
+
     return (
         <div className="container mx-auto pt-32 pb-10 px-6 animate-fade-in">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
@@ -23,7 +30,6 @@ export default function StudentDashboard() {
                     <p className="text-slate-400 mt-1">Bienvenido de nuevo, continúa donde lo dejaste.</p>
                 </div>
                 <div className="flex gap-3">
-                    {/* Botón para solicitar ser asesor (Lo usaremos pronto) */}
                     <Link to="/solicitar-asesor" className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-5 py-2.5 rounded-xl text-white font-semibold transition-all border border-white/10">
                         <GraduationCap size={18} /> Quiero ser Asesor
                     </Link>
@@ -34,7 +40,7 @@ export default function StudentDashboard() {
             </div>
 
             {loading ? (
-                <div className="text-white text-center py-20">Cargando tus cursos...</div>
+                <div className="text-white text-center py-20 animate-pulse">Cargando tus cursos...</div>
             ) : misCursos.length === 0 ? (
                 <div className="text-center py-24 bg-slate-800/30 rounded-3xl border border-white/5 border-dashed">
                     <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -45,26 +51,34 @@ export default function StudentDashboard() {
                     <Link to="/cursos" className="text-indigo-400 hover:text-indigo-300 font-semibold">Ir al catálogo →</Link>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {misCursos.map(curso => (
-                        <div key={curso.cursoId} className="group bg-slate-900/50 border border-white/10 rounded-2xl overflow-hidden hover:border-indigo-500/50 transition-all hover:-translate-y-1">
-                            <div className="h-40 bg-gradient-to-br from-slate-800 to-slate-700 relative">
-                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-sm">
-                                    <PlayCircle size={48} className="text-white" />
+                <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {currentCursos.map(curso => (
+                            <div key={curso.cursoId} className="group bg-slate-900/50 border border-white/10 rounded-2xl overflow-hidden hover:border-indigo-500/50 transition-all hover:-translate-y-1 shadow-lg">
+                                <div className="h-40 bg-gradient-to-br from-slate-800 to-slate-700 relative">
+                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-sm cursor-pointer">
+                                        <PlayCircle size={48} className="text-white scale-90 group-hover:scale-100 transition-transform" />
+                                    </div>
+                                </div>
+                                <div className="p-6">
+                                    <div className="text-xs font-bold text-indigo-400 mb-2 uppercase tracking-wider">Curso</div>
+                                    <h3 className="text-xl font-bold text-white mb-2 line-clamp-1">{curso.titulo}</h3>
+                                    <p className="text-slate-400 text-sm line-clamp-2 mb-6">{curso.descripcion}</p>
+                                    <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                                        <span className="text-xs text-slate-500">Impartido por <span className="text-slate-300">{curso.asesorNombre}</span></span>
+                                        <button className="text-sm font-semibold text-white hover:text-indigo-400 transition-colors">Continuar</button>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="p-6">
-                                <div className="text-xs font-bold text-indigo-400 mb-2 uppercase tracking-wider">Curso</div>
-                                <h3 className="text-xl font-bold text-white mb-2 line-clamp-1">{curso.titulo}</h3>
-                                <p className="text-slate-400 text-sm line-clamp-2 mb-6">{curso.descripcion}</p>
-                                <div className="flex items-center justify-between pt-4 border-t border-white/5">
-                                    <span className="text-xs text-slate-500">Impartido por <span className="text-slate-300">{curso.asesorNombre}</span></span>
-                                    <button className="text-sm font-semibold text-white hover:text-indigo-400 transition-colors">Continuar</button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                    <Pagination 
+                        itemsPerPage={itemsPerPage} 
+                        totalItems={misCursos.length} 
+                        paginate={setCurrentPage} 
+                        currentPage={currentPage} 
+                    />
+                </>
             )}
         </div>
     );
