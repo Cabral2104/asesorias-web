@@ -1,22 +1,20 @@
 import { useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
-import { DollarSign, Users, BookOpen, Star, Check, X, FileText, Download, Clock, Eye, Briefcase, GraduationCap, Building2, AlignLeft, Phone, Mail, ChevronRight } from 'lucide-react';
+import { DollarSign, Users, BookOpen, Star, Check, X, FileText, ExternalLink, Clock, Briefcase, GraduationCap, Building2, Mail, ChevronRight } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import Pagination from '../../components/ui/Pagination';
 
-const API_ROOT = 'https://localhost:7185';
-
 export default function AdminDashboard() {
     const [stats, setStats] = useState(null);
-    const [chartData, setChartData] = useState([]); // Gráfica Real
+    const [chartData, setChartData] = useState([]);
     const [asesores, setAsesores] = useState([]);
     const [solicitudes, setSolicitudes] = useState([]);
     const [loading, setLoading] = useState(true);
     
     // Modales
     const [selectedRequest, setSelectedRequest] = useState(null);
-    const [selectedAsesor, setSelectedAsesor] = useState(null); // Nuevo Modal Asesor
+    const [selectedAsesor, setSelectedAsesor] = useState(null);
 
     // Paginación
     const [currentPageSolicitudes, setCurrentPageSolicitudes] = useState(1);
@@ -27,13 +25,13 @@ export default function AdminDashboard() {
         try {
             const [statsRes, chartRes, asesoresRes, solicitudesRes] = await Promise.all([
                 axiosClient.get('/Admin/dashboard-stats'),
-                axiosClient.get('/Admin/revenue-chart'), // Datos reales de la gráfica
+                axiosClient.get('/Admin/revenue-chart'),
                 axiosClient.get('/Admin/dashboard-asesores'),
                 axiosClient.get('/Admin/pending-applications')
             ]);
 
             setStats(statsRes.data);
-            setChartData(chartRes.data); // Guardamos datos reales
+            setChartData(chartRes.data);
             setAsesores(asesoresRes.data);
             
             const sortedSolicitudes = solicitudesRes.data.sort((a, b) => 
@@ -52,56 +50,58 @@ export default function AdminDashboard() {
         fetchData();
     }, []);
 
-    // --- CARGAR DETALLE DE ASESOR (Al hacer click) ---
     const handleViewAsesor = async (asesorId) => {
         try {
             const res = await axiosClient.get(`/Admin/asesor-detail/${asesorId}`);
             setSelectedAsesor(res.data);
         } catch (error) {
-            Swal.fire('Error', 'No se pudieron cargar los detalles del asesor', 'error');
+            Swal.fire('Error', 'No se pudieron cargar los detalles.', 'error');
         }
     };
 
-    // --- ACCIONES SOLICITUDES ---
     const handleApprove = async (userId) => {
-        /* ... (Misma lógica de antes) ... */
-        // Por brevedad, mantén tu lógica de aprobar aquí
-        // ...
-        const result = await Swal.fire({ title: '¿Aprobar?', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí', background: '#1e293b', color: '#fff' });
+        const result = await Swal.fire({ title: '¿Aprobar Asesor?', text: 'Se le otorgará el rol de Asesor inmediatamente.', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, aprobar', confirmButtonColor: '#10b981', cancelButtonColor: '#334155', background: '#1e293b', color: '#fff' });
         if(result.isConfirmed) {
-             await axiosClient.post(`/Admin/approve/${userId}`);
-             fetchData();
-             setSelectedRequest(null);
+             try {
+                await axiosClient.post(`/Admin/approve/${userId}`);
+                Swal.fire({ title: 'Aprobado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff' });
+                fetchData();
+                setSelectedRequest(null);
+             } catch (e) {
+                Swal.fire({ title: 'Error', text: 'No se pudo aprobar.', icon: 'error', background: '#1e293b', color: '#fff' });
+             }
         }
     };
 
     const handleReject = async (userId) => {
-        /* ... (Misma lógica de antes) ... */
-        const result = await Swal.fire({ title: '¿Rechazar?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí', background: '#1e293b', color: '#fff' });
+        const result = await Swal.fire({ title: '¿Rechazar solicitud?', text: 'Esta acción es irreversible.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, rechazar', confirmButtonColor: '#ef4444', cancelButtonColor: '#334155', background: '#1e293b', color: '#fff' });
         if(result.isConfirmed) {
-             await axiosClient.post(`/Admin/reject/${userId}`);
-             fetchData();
-             setSelectedRequest(null);
+             try {
+                await axiosClient.post(`/Admin/reject/${userId}`);
+                Swal.fire({ title: 'Rechazado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff' });
+                fetchData();
+                setSelectedRequest(null);
+             } catch (e) {
+                Swal.fire({ title: 'Error', text: 'No se pudo rechazar.', icon: 'error', background: '#1e293b', color: '#fff' });
+             }
         }
     };
 
-    // Paginación
     const currentSolicitudes = solicitudes.slice((currentPageSolicitudes - 1) * itemsPerPage, currentPageSolicitudes * itemsPerPage);
     const currentAsesores = asesores.slice((currentPageAsesores - 1) * itemsPerPage, currentPageAsesores * itemsPerPage);
 
-    // Datos Pastel (Reales)
     const pieData = [
         { name: 'Aprobados', value: stats?.totalAsesoresAprobados || 0 },
         { name: 'Estudiantes', value: (stats?.totalUsuarios || 0) - (stats?.totalAsesoresAprobados || 0) },
     ];
     const COLORS = ['#10b981', '#3b82f6'];
 
-    if (loading) return <div className="text-white text-center pt-40 animate-pulse">Cargando Sistema Integral...</div>;
+    if (loading) return <div className="text-white text-center pt-40 animate-pulse">Cargando Panel de Administración...</div>;
 
     return (
         <div className="container mx-auto pt-32 pb-10 px-6 space-y-12 animate-fade-in relative">
             
-            {/* ... (Header y Cards Stats igual que antes) ... */}
+            {/* STATS */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <StatCard title="Ingresos Totales" value={`$${stats?.ingresosTotales || 0}`} icon={DollarSign} color="text-emerald-400" bg="bg-emerald-500/10" />
                 <StatCard title="Usuarios Totales" value={stats?.totalUsuarios || 0} icon={Users} color="text-blue-400" bg="bg-blue-500/10" />
@@ -109,13 +109,13 @@ export default function AdminDashboard() {
                 <StatCard title="Calidad Global" value={stats?.ratingPromedioGlobal.toFixed(1) || 0} icon={Star} color="text-yellow-400" bg="bg-yellow-500/10" />
             </div>
 
-            {/* GRÁFICAS REALES */}
+            {/* GRÁFICAS */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-slate-900/80 border border-white/10 rounded-2xl p-6 shadow-xl">
                     <h3 className="text-lg font-bold text-white mb-6">Ingresos Mensuales ({new Date().getFullYear()})</h3>
                     <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData}> {/* Usamos data real */}
+                            <BarChart data={chartData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                                 <XAxis dataKey="mes" stroke="#94a3b8" />
                                 <YAxis stroke="#94a3b8" />
@@ -125,9 +125,8 @@ export default function AdminDashboard() {
                         </ResponsiveContainer>
                     </div>
                 </div>
-                {/* ... (Gráfica Pastel igual que antes) ... */}
                 <div className="bg-slate-900/80 border border-white/10 rounded-2xl p-6 shadow-xl">
-                    <h3 className="text-lg font-bold text-white mb-6">Usuarios</h3>
+                    <h3 className="text-lg font-bold text-white mb-6">Distribución Usuarios</h3>
                     <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
@@ -142,10 +141,56 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* SECCIÓN SOLICITUDES (Igual que antes pero con paginación) */}
-            {/* ... (Mantén tu código de solicitudes aquí usando currentSolicitudes) ... */}
+            {/* SOLICITUDES PENDIENTES */}
+            <div className="bg-slate-900/80 border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+                <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-950/50">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <Clock className="text-orange-400" /> Solicitudes Pendientes
+                    </h3>
+                    <span className="text-xs font-bold bg-orange-500/10 text-orange-400 px-3 py-1 rounded-full border border-orange-500/20">{solicitudes.length} nuevas</span>
+                </div>
+                
+                {solicitudes.length === 0 ? (
+                    <div className="p-10 text-center text-slate-500">No hay solicitudes pendientes.</div>
+                ) : (
+                    <>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm text-slate-400">
+                                <thead className="bg-slate-950 text-slate-200 uppercase font-semibold text-xs">
+                                    <tr>
+                                        <th className="px-6 py-4">Usuario</th>
+                                        <th className="px-6 py-4">Especialidad</th>
+                                        <th className="px-6 py-4">Fecha</th>
+                                        <th className="px-6 py-4 text-center">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {currentSolicitudes.map((sol) => (
+                                        <tr key={sol.usuarioId} className="hover:bg-white/5 transition-colors">
+                                            <td className="px-6 py-4 text-white font-medium">{sol.userName}</td>
+                                            <td className="px-6 py-4">{sol.especialidad}</td>
+                                            <td className="px-6 py-4 text-xs">{new Date(sol.fechaSolicitud).toLocaleDateString()}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <button 
+                                                    onClick={() => setSelectedRequest(sol)}
+                                                    className="px-4 py-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 rounded-lg text-xs font-bold border border-indigo-500/20 transition-all flex items-center justify-center gap-2 mx-auto"
+                                                >
+                                                    <FileText size={14} /> Revisar
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="p-4 border-t border-white/10 bg-slate-950/30">
+                            <Pagination itemsPerPage={itemsPerPage} totalItems={solicitudes.length} paginate={setCurrentPageSolicitudes} currentPage={currentPageSolicitudes} />
+                        </div>
+                    </>
+                )}
+            </div>
             
-            {/* SECCIÓN ASESORES (MEJORADA CON CLICK) */}
+            {/* TOP ASESORES */}
             <div className="bg-slate-900/80 border border-white/10 rounded-2xl overflow-hidden shadow-xl">
                 <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-950/50">
                     <h3 className="text-xl font-bold text-white">Top Asesores</h3>
@@ -189,7 +234,94 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* --- MODAL DETALLE DE ASESOR (NUEVO) --- */}
+            {/* --- MODAL DETALLE DE SOLICITUD (CON LINK) --- */}
+            {selectedRequest && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-slate-900 border border-white/10 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-950/50">
+                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                <FileText className="text-indigo-400" /> Revisión de Solicitud
+                            </h2>
+                            <button onClick={() => setSelectedRequest(null)} className="text-slate-400 hover:text-white transition-colors"><X /></button>
+                        </div>
+                        
+                        <div className="p-8 overflow-y-auto custom-scrollbar space-y-6">
+                            
+                            {/* Header del Postulante */}
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-2xl text-slate-400 font-bold">
+                                    {selectedRequest.userName.charAt(0)}
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">{selectedRequest.userName}</h3>
+                                    <p className="text-indigo-400">{selectedRequest.especialidad}</p>
+                                    <p className="text-slate-500 text-sm">{selectedRequest.email}</p>
+                                </div>
+                            </div>
+
+                            {/* Datos Académicos y Experiencia */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-slate-950/50 p-4 rounded-xl border border-white/5">
+                                    <h4 className="text-slate-400 text-xs uppercase font-bold mb-3 flex items-center gap-2"><GraduationCap size={14}/> Formación</h4>
+                                    <p className="text-white font-medium">{selectedRequest.nivelEstudios}</p>
+                                    <p className="text-slate-400 text-sm">{selectedRequest.institucionEducativa}</p>
+                                    <p className="text-slate-500 text-xs mt-1">Graduado: {selectedRequest.anioGraduacion || 'N/A'}</p>
+                                </div>
+                                <div className="bg-slate-950/50 p-4 rounded-xl border border-white/5">
+                                    <h4 className="text-slate-400 text-xs uppercase font-bold mb-3 flex items-center gap-2"><Briefcase size={14}/> Experiencia</h4>
+                                    <p className="text-white font-medium">{selectedRequest.aniosExperiencia} Años</p>
+                                    <p className="text-slate-400 text-sm mt-1 line-clamp-3">{selectedRequest.experienciaLaboral}</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-950/50 p-4 rounded-xl border border-white/5">
+                                <h4 className="text-slate-400 text-xs uppercase font-bold mb-2">Sobre mí</h4>
+                                <p className="text-slate-300 text-sm leading-relaxed">{selectedRequest.descripcion}</p>
+                            </div>
+
+                            {/* --- SECCIÓN DOCUMENTO (LINK EXTERNO) --- */}
+                            <div className="bg-indigo-500/10 p-5 rounded-xl border border-indigo-500/20 flex flex-col sm:flex-row justify-between items-center gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-indigo-500 rounded-lg text-white">
+                                        <FileText size={24} />
+                                    </div>
+                                    <div>
+                                        <p className="text-white font-bold text-sm">Documentación / Portafolio</p>
+                                        <p className="text-indigo-200 text-xs">Enlace proporcionado por el usuario</p>
+                                    </div>
+                                </div>
+                                
+                                <a 
+                                    href={selectedRequest.documentoVerificacionUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="px-4 py-2 bg-white text-indigo-900 font-bold rounded-lg text-sm hover:bg-slate-200 transition-colors flex items-center gap-2"
+                                >
+                                    <ExternalLink size={16} /> Visitar Enlace
+                                </a>
+                            </div>
+
+                        </div>
+
+                        <div className="p-6 border-t border-white/10 bg-slate-950/50 flex justify-end gap-3">
+                            <button 
+                                onClick={() => handleReject(selectedRequest.usuarioId)}
+                                className="px-5 py-2.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 rounded-xl font-bold text-sm transition-all flex items-center gap-2"
+                            >
+                                <X size={16} /> Rechazar
+                            </button>
+                            <button 
+                                onClick={() => handleApprove(selectedRequest.usuarioId)}
+                                className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                            >
+                                <Check size={16} /> Aprobar Asesor
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Detalle Asesor (Igual que antes) */}
             {selectedAsesor && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-slate-900 border border-white/10 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -254,12 +386,6 @@ export default function AdminDashboard() {
                         </div>
                     </div>
                 </div>
-            )}
-
-            {/* Modal de Solicitudes (Mantén el que tenías) */}
-            {selectedRequest && (
-                /* ... Pega aquí el modal de solicitudes que te di antes ... */
-                <></> // Placeholder
             )}
         </div>
     );

@@ -1,20 +1,14 @@
 import { useState } from 'react';
 import axiosClient from '../api/axiosClient';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Send, CheckCircle, Briefcase, Book, FileText } from 'lucide-react';
+import { Send, Briefcase, Book, Link as LinkIcon } from 'lucide-react';
 import Swal from 'sweetalert2';
 
 export default function SolicitarAsesorPage() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     
-    // Estado específico para el archivo convertido a texto
-    const [fileData, setFileData] = useState({
-        base64: '',
-        name: ''
-    });
-    
-    // Estado para los datos del formulario
+    // Estado único para todo el formulario
     const [formData, setFormData] = useState({
         especialidad: '',
         descripcion: '',
@@ -24,103 +18,40 @@ export default function SolicitarAsesorPage() {
         anioGraduacion: '',
         aniosExperiencia: '',
         experienciaLaboral: '',
-        certificaciones: ''
+        certificaciones: '',
+        documentoUrl: '' // <--- NUEVO CAMPO
     });
 
-    // Maneja los cambios en los inputs de texto
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    // Maneja la selección del archivo y lo convierte a Base64
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            // Validación de tamaño (5MB máximo para no saturar el JSON)
-            if (file.size > 5 * 1024 * 1024) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Archivo muy grande',
-                    text: 'Por favor sube un archivo menor a 5MB.',
-                    background: '#1e293b',
-                    color: '#fff'
-                });
-                e.target.value = null; // Limpiar input
-                return;
-            }
-
-            // Validación de tipo
-            const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-            if (!validTypes.includes(file.type)) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Formato inválido',
-                    text: 'Solo se aceptan archivos PDF o Word.',
-                    background: '#1e293b',
-                    color: '#fff'
-                });
-                return;
-            }
-
-            // Conversión a Base64
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setFileData({
-                    base64: reader.result, // Este string contiene el archivo codificado
-                    name: file.name
-                });
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        // 1. Validar que haya archivo
-        if (!fileData.base64) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Falta el Documento',
-                text: 'Por favor adjunta tu CV o título para continuar.',
-                background: '#1e293b',
-                color: '#fff'
-            });
-            return;
-        }
-
         setLoading(true);
 
-        // 2. Preparar el Payload (Objeto JSON plano)
-        // Ya NO usamos FormData, enviamos un objeto normal.
+        // Preparar el Payload (JSON simple)
         const payload = {
-            // Esparcimos los datos del formulario
             ...formData,
-            
-            // Aseguramos tipos de datos correctos para el backend
+            // Aseguramos tipos numéricos
             aniosExperiencia: parseInt(formData.aniosExperiencia) || 0,
             anioGraduacion: formData.anioGraduacion ? parseInt(formData.anioGraduacion) : null,
-            
-            // Agregamos el archivo como texto
-            archivoBase64: fileData.base64,
-            nombreArchivo: fileData.name
+            // El documentoUrl se envía tal cual
         };
 
         try {
-            // 3. Enviar al Backend
-            // Axios usa 'application/json' por defecto, que es exactamente lo que queremos.
-            // NO tocamos headers.
+            // Enviamos JSON estándar (Axios lo maneja automático)
             const response = await axiosClient.post('/Asesor/apply', payload);
 
             if (response.data.isSuccess) {
                 Swal.fire({
                     icon: 'success',
                     title: '¡Solicitud Enviada!',
-                    text: 'Tu perfil y documentación han sido recibidos correctamente.',
+                    text: 'Tu perfil ha sido recibido. Un administrador revisará tu enlace.',
                     background: '#1e293b',
                     color: '#fff'
                 });
-                navigate('/student'); // Regresar al dashboard
+                navigate('/profile'); // Regresar al perfil
             }
         } catch (error) {
             console.error("Error al enviar solicitud:", error);
@@ -264,30 +195,34 @@ export default function SolicitarAsesorPage() {
                     </div>
                 </div>
 
-                {/* Sección Archivo (Base64) */}
+                {/* --- SECCIÓN NUEVA: ENLACE EXTERNO --- */}
                 <div className="bg-slate-900/50 border border-white/10 rounded-2xl p-8 backdrop-blur-sm">
                     <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                        <FileText className="text-blue-400" /> Documentación
+                        <LinkIcon className="text-blue-400" /> Documentación (Enlace)
                     </h3>
-                    <div className="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center hover:border-indigo-500 transition-colors bg-slate-950/30">
-                        <input 
-                            type="file" 
-                            id="cvFile" 
-                            className="hidden" 
-                            accept=".pdf,.doc,.docx"
-                            onChange={handleFileChange}
-                        />
-                        <label htmlFor="cvFile" className="cursor-pointer flex flex-col items-center gap-3">
-                            <div className="p-4 bg-slate-900 rounded-full text-indigo-400">
-                                <Upload size={32} />
+                    
+                    <div className="space-y-4">
+                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                            <p className="text-sm text-blue-200">
+                                Por favor, proporciona un enlace público (Google Drive, OneDrive, Dropbox, LinkedIn o tu Portafolio Web) donde podamos ver tu CV y certificaciones.
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className="text-sm text-slate-400 block mb-2">URL del Documento / Portafolio</label>
+                            <div className="relative">
+                                <LinkIcon className="absolute left-3 top-3.5 w-5 h-5 text-slate-500" />
+                                <input 
+                                    type="url" 
+                                    name="documentoUrl"
+                                    value={formData.documentoUrl}
+                                    onChange={handleChange}
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-4 py-3 text-white focus:border-blue-500 outline-none transition-colors placeholder-slate-600" 
+                                    placeholder="https://drive.google.com/..." 
+                                    required 
+                                />
                             </div>
-                            <div>
-                                <p className="text-white font-medium text-lg">
-                                    {fileData.name ? fileData.name : "Sube tu CV o Título"}
-                                </p>
-                                <p className="text-slate-500 text-sm mt-1">PDF, DOCX (Máx 5MB)</p>
-                            </div>
-                        </label>
+                        </div>
                     </div>
                 </div>
 
