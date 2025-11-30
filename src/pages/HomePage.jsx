@@ -3,8 +3,9 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Search, Star, Shield, Zap, Globe, Loader2, Tag } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
-import { useAuth } from '../context/AuthContext'; // <--- IMPORTAR
-import Swal from 'sweetalert2'; // <--- IMPORTAR
+import { useAuth } from '../context/AuthContext';
+import Swal from 'sweetalert2';
+import PaymentModal from '../components/ui/PaymentModal'; // <--- IMPORTANTE
 
 const fadeInUp = {
     hidden: { opacity: 0, y: 40 },
@@ -18,8 +19,8 @@ const staggerContainer = {
 export default function HomePage() {
     const [popularCourses, setPopularCourses] = useState([]);
     const [loadingCourses, setLoadingCourses] = useState(true);
-    
-    // --- HOOKS PARA INSCRIPCIÓN ---
+    const [selectedCurso, setSelectedCurso] = useState(null); // <--- ESTADO DEL MODAL
+
     const { isAuthenticated, user } = useAuth();
     const navigate = useNavigate();
 
@@ -34,55 +35,43 @@ export default function HomePage() {
             .finally(() => setLoadingCourses(false));
     }, []);
 
-    // --- FUNCIÓN DE INSCRIPCIÓN (Misma lógica que en CursosPage) ---
-    const handleEnroll = async (cursoId, titulo) => {
+    // --- FUNCIÓN DE CLICK (Igual que en CursosPage) ---
+    const handleBuyClick = (curso) => {
         if (!isAuthenticated) {
             Swal.fire({
                 title: 'Inicia Sesión',
-                text: 'Necesitas una cuenta para inscribirte a los cursos.',
+                text: 'Necesitas una cuenta para inscribirte.',
                 icon: 'info',
                 showCancelButton: true,
                 confirmButtonText: 'Ir a Login',
-                confirmButtonColor: '#4f46e5',
-                cancelButtonText: 'Cancelar',
                 background: '#1e293b', color: '#fff'
-            }).then((result) => {
-                if (result.isConfirmed) navigate('/login');
+            }).then((res) => {
+                if (res.isConfirmed) navigate('/login');
             });
             return;
         }
 
         if (user.roles.includes('Asesor')) {
-            Swal.fire({ icon: 'warning', title: 'Acceso Restringido', text: 'Los asesores no pueden inscribirse a cursos (usa una cuenta de estudiante).', background: '#1e293b', color: '#fff' });
+            Swal.fire({ icon: 'warning', title: 'Acceso Restringido', text: 'Los asesores no pueden inscribirse (usa cuenta de estudiante).', background: '#1e293b', color: '#fff' });
             return;
         }
 
-        try {
-            const result = await Swal.fire({
-                title: `¿Inscribirse a "${titulo}"?`,
-                text: "Se registrará el pago simulado y tendrás acceso inmediato.",
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, inscribirme',
-                confirmButtonColor: '#10b981',
-                background: '#1e293b', color: '#fff'
-            });
-
-            if (result.isConfirmed) {
-                const response = await axiosClient.post(`/curso/${cursoId}/inscribirme`);
-                if (response.data.isSuccess) {
-                    Swal.fire({ icon: 'success', title: '¡Inscrito!', text: 'Disfruta tu aprendizaje.', background: '#1e293b', color: '#fff' });
-                    navigate('/profile'); // Redirigir al dashboard
-                }
-            }
-        } catch (error) {
-            Swal.fire({ icon: 'error', title: 'Error', text: error.response?.data?.message || 'No se pudo completar la inscripción.', background: '#1e293b', color: '#fff' });
-        }
+        // Abrir Modal
+        setSelectedCurso(curso);
     };
 
     return (
-        <div className="overflow-hidden">
+        <div className="overflow-hidden relative">
             
+            {/* --- MODAL DE PAGO --- */}
+            {selectedCurso && (
+                <PaymentModal 
+                    curso={selectedCurso} 
+                    onClose={() => setSelectedCurso(null)}
+                    onSuccess={() => navigate('/profile')} 
+                />
+            )}
+
             {/* --- HERO SECTION --- */}
             <section className="relative min-h-[90vh] flex items-center justify-center pt-20">
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none"></div>
@@ -189,8 +178,8 @@ export default function HomePage() {
                                     {/* Imagen Placeholder Dinámica */}
                                     <div className={`h-48 w-full bg-gradient-to-br ${index % 3 === 0 ? 'from-blue-600 to-indigo-600' : index % 3 === 1 ? 'from-purple-600 to-pink-600' : 'from-emerald-500 to-teal-600'} relative overflow-hidden shrink-0`}>
                                         <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
-                                        <div className="absolute bottom-4 left-4 px-3 py-1 bg-black/50 backdrop-blur-md rounded-lg text-xs font-bold text-white border border-white/10">
-                                            ${curso.costo} MXN
+                                        <div className="absolute bottom-4 left-4 px-3 py-1 bg-black/50 backdrop-blur-md rounded-lg text-xs font-bold text-white border border-white/10 flex items-center gap-1">
+                                            <Tag size={12} className="text-emerald-400" /> ${curso.costo} MXN
                                         </div>
                                     </div>
                                     
@@ -220,9 +209,9 @@ export default function HomePage() {
                                             </div>
                                         </div>
 
-                                        {/* --- BOTÓN AGREGADO --- */}
+                                        {/* BOTÓN DE INSCRIPCIÓN DIRECTA */}
                                         <button 
-                                            onClick={() => handleEnroll(curso.cursoId, curso.titulo)}
+                                            onClick={() => handleBuyClick(curso)}
                                             className="w-full py-3 bg-white/5 hover:bg-indigo-600 hover:text-white text-indigo-300 border border-indigo-500/30 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-transparent"
                                         >
                                             Inscribirse Ahora <ArrowRight size={18} />
@@ -241,7 +230,7 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {/* --- SECCIÓN TESTIMONIOS --- */}
+            {/* --- SECCIÓN TESTIMONIOS Y FOOTER (IGUAL QUE ANTES) --- */}
             <section className="py-32 bg-slate-900/30 border-t border-white/5">
                 <div className="container mx-auto px-6 text-center">
                     <h2 className="text-3xl md:text-4xl font-bold text-white mb-16">Lo que dicen nuestros estudiantes</h2>
@@ -267,7 +256,6 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {/* --- CALL TO ACTION --- */}
             <section className="py-24 relative overflow-hidden">
                 <div className="absolute inset-0 bg-indigo-600/20"></div>
                 <div className="container mx-auto px-6 relative z-10 text-center">
