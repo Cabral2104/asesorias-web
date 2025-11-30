@@ -3,15 +3,13 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import MainLayout from './layouts/MainLayout';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
-import ProfilePage from './pages/ProfilePage'; // IMPORTAR PERFIL
+import ProfilePage from './pages/ProfilePage';
 import RegisterPage from './pages/RegisterPage';
 import SolicitarAsesorPage from './pages/SolicitarAsesorPage';
+import CursoManagerPage from './pages/CursoManagerPage';
+import CursosPage from './pages/CursosPage';
+import CursoPlayerPage from './pages/CursoPlayerPage'; // <--- IMPORTAR REPRODUCTOR
 
-// ... (Mantén tus componentes placeholder Register y Cursos igual que antes) ...
-const Register = () => <div className="pt-32 text-center h-screen text-white">Registro</div>;
-const Cursos = () => <div className="pt-32 text-center h-screen text-white">Catálogo Completo</div>;
-
-// Componente para proteger rutas privadas (Genérico)
 const ProtectedRoute = () => {
     const { isAuthenticated, loading } = useAuth();
     if (loading) return <div className="min-h-screen bg-slate-950"></div>;
@@ -28,13 +26,18 @@ function App() {
             <Route index element={<HomePage />} />
             <Route path="login" element={<LoginPage />} />
             <Route path="register" element={<RegisterPage />} />
-            <Route path="cursos" element={<Cursos />} />
+            <Route path="cursos" element={<CursosPage />} />
             
             {/* RUTAS PROTEGIDAS */}
             <Route element={<ProtectedRoute />}>
-                {/* La nueva página de perfil unificada */}
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="solicitar-asesor" element={<SolicitarAsesorPage />} />
+                
+                {/* Gestión de Cursos (Asesor) */}
+                <Route path="manage-course/:cursoId" element={<CursoManagerPage />} />
+                
+                {/* Sala de Clases (Estudiante) */}
+                <Route path="classroom/:cursoId" element={<CursoPlayerPage />} />
             </Route>
 
           </Route>

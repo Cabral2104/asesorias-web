@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { BookOpen, Search, PlayCircle, GraduationCap } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // Importar useNavigate
 import Pagination from '../../components/ui/Pagination';
 
 export default function StudentDashboard() {
@@ -9,6 +9,7 @@ export default function StudentDashboard() {
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 6;
+    const navigate = useNavigate(); // Hook para navegación
 
     useEffect(() => {
         axiosClient.get('/estudiante/mis-cursos')
@@ -56,7 +57,10 @@ export default function StudentDashboard() {
                         {currentCursos.map(curso => (
                             <div key={curso.cursoId} className="group bg-slate-900/50 border border-white/10 rounded-2xl overflow-hidden hover:border-indigo-500/50 transition-all hover:-translate-y-1 shadow-lg">
                                 <div className="h-40 bg-gradient-to-br from-slate-800 to-slate-700 relative">
-                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-sm cursor-pointer">
+                                    <div 
+                                        className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-sm cursor-pointer"
+                                        onClick={() => navigate(`/classroom/${curso.cursoId}`)}
+                                    >
                                         <PlayCircle size={48} className="text-white scale-90 group-hover:scale-100 transition-transform" />
                                     </div>
                                 </div>
@@ -66,7 +70,12 @@ export default function StudentDashboard() {
                                     <p className="text-slate-400 text-sm line-clamp-2 mb-6">{curso.descripcion}</p>
                                     <div className="flex items-center justify-between pt-4 border-t border-white/5">
                                         <span className="text-xs text-slate-500">Impartido por <span className="text-slate-300">{curso.asesorNombre}</span></span>
-                                        <button className="text-sm font-semibold text-white hover:text-indigo-400 transition-colors">Continuar</button>
+                                        <button 
+                                            onClick={() => navigate(`/classroom/${curso.cursoId}`)}
+                                            className="text-sm font-semibold text-white hover:text-indigo-400 transition-colors flex items-center gap-1"
+                                        >
+                                            Continuar <PlayCircle size={14} />
+                                        </button>
                                     </div>
                                 </div>
                             </div>

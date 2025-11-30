@@ -1,6 +1,10 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Search, Star, Shield, Zap, Globe } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { ArrowRight, Search, Star, Shield, Zap, Globe, Loader2, Tag } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import axiosClient from '../api/axiosClient';
+import { useAuth } from '../context/AuthContext'; // <--- IMPORTAR
+import Swal from 'sweetalert2'; // <--- IMPORTAR
 
 const fadeInUp = {
     hidden: { opacity: 0, y: 40 },
@@ -12,12 +16,75 @@ const staggerContainer = {
 };
 
 export default function HomePage() {
+    const [popularCourses, setPopularCourses] = useState([]);
+    const [loadingCourses, setLoadingCourses] = useState(true);
+    
+    // --- HOOKS PARA INSCRIPCIÓN ---
+    const { isAuthenticated, user } = useAuth();
+    const navigate = useNavigate();
+
+    // Cargar cursos al montar
+    useEffect(() => {
+        axiosClient.get('/curso/publicos')
+            .then(res => {
+                // Tomamos solo los primeros 3 para mostrar en el Home
+                setPopularCourses(res.data.slice(0, 3));
+            })
+            .catch(console.error)
+            .finally(() => setLoadingCourses(false));
+    }, []);
+
+    // --- FUNCIÓN DE INSCRIPCIÓN (Misma lógica que en CursosPage) ---
+    const handleEnroll = async (cursoId, titulo) => {
+        if (!isAuthenticated) {
+            Swal.fire({
+                title: 'Inicia Sesión',
+                text: 'Necesitas una cuenta para inscribirte a los cursos.',
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonText: 'Ir a Login',
+                confirmButtonColor: '#4f46e5',
+                cancelButtonText: 'Cancelar',
+                background: '#1e293b', color: '#fff'
+            }).then((result) => {
+                if (result.isConfirmed) navigate('/login');
+            });
+            return;
+        }
+
+        if (user.roles.includes('Asesor')) {
+            Swal.fire({ icon: 'warning', title: 'Acceso Restringido', text: 'Los asesores no pueden inscribirse a cursos (usa una cuenta de estudiante).', background: '#1e293b', color: '#fff' });
+            return;
+        }
+
+        try {
+            const result = await Swal.fire({
+                title: `¿Inscribirse a "${titulo}"?`,
+                text: "Se registrará el pago simulado y tendrás acceso inmediato.",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, inscribirme',
+                confirmButtonColor: '#10b981',
+                background: '#1e293b', color: '#fff'
+            });
+
+            if (result.isConfirmed) {
+                const response = await axiosClient.post(`/curso/${cursoId}/inscribirme`);
+                if (response.data.isSuccess) {
+                    Swal.fire({ icon: 'success', title: '¡Inscrito!', text: 'Disfruta tu aprendizaje.', background: '#1e293b', color: '#fff' });
+                    navigate('/profile'); // Redirigir al dashboard
+                }
+            }
+        } catch (error) {
+            Swal.fire({ icon: 'error', title: 'Error', text: error.response?.data?.message || 'No se pudo completar la inscripción.', background: '#1e293b', color: '#fff' });
+        }
+    };
+
     return (
         <div className="overflow-hidden">
             
             {/* --- HERO SECTION --- */}
             <section className="relative min-h-[90vh] flex items-center justify-center pt-20">
-                {/* Glow effect background */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none"></div>
 
                 <div className="container mx-auto px-6 text-center z-10">
@@ -94,7 +161,7 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {/* --- SECCIÓN CURSOS DESTACADOS (MOCKUP) --- */}
+            {/* --- SECCIÓN CURSOS DESTACADOS (REAL) --- */}
             <section className="py-32">
                 <div className="container mx-auto px-6">
                     <div className="flex justify-between items-end mb-12">
@@ -107,38 +174,64 @@ export default function HomePage() {
                         </Link>
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-8">
-                        {[1, 2, 3].map((item) => (
-                            <div key={item} className="group rounded-3xl overflow-hidden border border-white/10 bg-slate-900/40 hover:border-indigo-500/50 transition-all duration-300 hover:-translate-y-1">
-                                {/* Imagen Placeholder con gradiente */}
-                                <div className={`h-48 w-full bg-gradient-to-br ${item === 1 ? 'from-blue-600 to-indigo-600' : item === 2 ? 'from-purple-600 to-pink-600' : 'from-emerald-500 to-teal-600'} relative overflow-hidden`}>
-                                    <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
-                                    <div className="absolute bottom-4 left-4 px-3 py-1 bg-black/50 backdrop-blur-md rounded-lg text-xs font-bold text-white border border-white/10">
-                                        Programación
+                    {loadingCourses ? (
+                        <div className="flex justify-center py-20">
+                            <Loader2 className="animate-spin text-indigo-500 w-10 h-10" />
+                        </div>
+                    ) : popularCourses.length === 0 ? (
+                        <div className="text-center py-10 bg-slate-900/50 rounded-2xl border border-white/5">
+                            <p className="text-slate-400">Aún no hay cursos publicados. ¡Sé el primero en crear uno!</p>
+                        </div>
+                    ) : (
+                        <div className="grid md:grid-cols-3 gap-8">
+                            {popularCourses.map((curso, index) => (
+                                <div key={curso.cursoId} className="group rounded-3xl overflow-hidden border border-white/10 bg-slate-900/40 hover:border-indigo-500/50 transition-all duration-300 hover:-translate-y-1 flex flex-col h-full">
+                                    {/* Imagen Placeholder Dinámica */}
+                                    <div className={`h-48 w-full bg-gradient-to-br ${index % 3 === 0 ? 'from-blue-600 to-indigo-600' : index % 3 === 1 ? 'from-purple-600 to-pink-600' : 'from-emerald-500 to-teal-600'} relative overflow-hidden shrink-0`}>
+                                        <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
+                                        <div className="absolute bottom-4 left-4 px-3 py-1 bg-black/50 backdrop-blur-md rounded-lg text-xs font-bold text-white border border-white/10">
+                                            ${curso.costo} MXN
+                                        </div>
                                     </div>
-                                </div>
-                                
-                                <div className="p-6">
-                                    <div className="flex items-center gap-2 mb-3 text-xs text-indigo-300 font-medium">
-                                        <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
-                                        En vivo
-                                    </div>
-                                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-indigo-400 transition-colors">Introducción al Desarrollo Web Moderno {2025}</h3>
-                                    <p className="text-slate-400 text-sm mb-6 line-clamp-2">Aprende React, Tailwind y Node.js desde cero construyendo proyectos reales.</p>
                                     
-                                    <div className="flex items-center justify-between border-t border-white/5 pt-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-full bg-slate-700"></div>
-                                            <span className="text-sm text-slate-300">Alex Dev</span>
+                                    <div className="p-6 flex flex-col flex-grow">
+                                        <div className="flex items-center gap-2 mb-3 text-xs text-indigo-300 font-medium">
+                                            <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
+                                            Curso Online
                                         </div>
-                                        <div className="flex items-center gap-1 text-amber-400 text-sm font-bold">
-                                            <Star className="w-4 h-4 fill-current" /> 4.9
+                                        <h3 className="text-xl font-bold text-white mb-2 group-hover:text-indigo-400 transition-colors line-clamp-2">
+                                            {curso.titulo}
+                                        </h3>
+                                        <p className="text-slate-400 text-sm mb-6 line-clamp-3 flex-grow">
+                                            {curso.descripcion}
+                                        </p>
+                                        
+                                        <div className="flex items-center justify-between border-t border-white/5 pt-4 mt-auto mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white">
+                                                    {curso.asesorNombre.charAt(0).toUpperCase()}
+                                                </div>
+                                                <span className="text-sm text-slate-300">{curso.asesorNombre}</span>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-1 text-amber-400 text-sm font-bold">
+                                                <Star className="w-4 h-4 fill-current" /> 
+                                                {curso.promedioCalificacion > 0 ? curso.promedioCalificacion.toFixed(1) : "N/A"}
+                                            </div>
                                         </div>
+
+                                        {/* --- BOTÓN AGREGADO --- */}
+                                        <button 
+                                            onClick={() => handleEnroll(curso.cursoId, curso.titulo)}
+                                            className="w-full py-3 bg-white/5 hover:bg-indigo-600 hover:text-white text-indigo-300 border border-indigo-500/30 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-transparent"
+                                        >
+                                            Inscribirse Ahora <ArrowRight size={18} />
+                                        </button>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                     
                     <div className="mt-10 text-center md:hidden">
                         <Link to="/cursos" className="text-indigo-400 font-semibold hover:text-indigo-300 inline-flex items-center gap-2">
@@ -174,7 +267,7 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {/* --- CALL TO ACTION (Footer Pre) --- */}
+            {/* --- CALL TO ACTION --- */}
             <section className="py-24 relative overflow-hidden">
                 <div className="absolute inset-0 bg-indigo-600/20"></div>
                 <div className="container mx-auto px-6 relative z-10 text-center">
