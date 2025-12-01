@@ -1,7 +1,5 @@
 import axios from 'axios';
 
-// IMPORTANTE: Este puerto (7185) es el que vimos en tus capturas del backend.
-// Si cambia, actualízalo aquí.
 const BASE_URL = 'https://localhost:7185/api';
 
 const axiosClient = axios.create({
@@ -11,7 +9,6 @@ const axiosClient = axios.create({
     },
 });
 
-// Interceptor: Inyecta el token JWT en cada petición automáticamente
 axiosClient.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');
@@ -21,6 +18,17 @@ axiosClient.interceptors.request.use(
         return config;
     },
     (error) => Promise.reject(error)
+);
+
+axiosClient.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response && error.response.status === 401) {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+        }
+        return Promise.reject(error);
+    }
 );
 
 export default axiosClient;
