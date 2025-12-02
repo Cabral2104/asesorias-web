@@ -1,21 +1,20 @@
 import { useEffect, useState } from 'react';
 import axiosClient from '../api/axiosClient';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Search, BookOpen, Tag, ArrowRight, Loader2, Star } from 'lucide-react';
 import Swal from 'sweetalert2';
-import PaymentModal from '../components/ui/PaymentModal'; // <--- IMPORTAR
+import PaymentModal from '../components/ui/PaymentModal';
 
 export default function CursosPage() {
     const [cursos, setCursos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedCurso, setSelectedCurso] = useState(null); // <--- ESTADO PARA EL MODAL
+    const [selectedCurso, setSelectedCurso] = useState(null);
     
     const { isAuthenticated, user } = useAuth();
     const navigate = useNavigate();
 
-    // ... useEffect carga de cursos (queda igual) ...
     useEffect(() => {
         axiosClient.get('/curso/publicos')
             .then(res => setCursos(res.data))
@@ -23,14 +22,12 @@ export default function CursosPage() {
             .finally(() => setLoading(false));
     }, []);
 
-    // Filtrar cursos por buscador (queda igual)
     const filteredCursos = cursos.filter(curso => 
         curso.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
         curso.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
         curso.asesorNombre.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // NUEVA FUNCIÓN DE CLICK
     const handleBuyClick = (curso) => {
         if (!isAuthenticated) {
             Swal.fire({ title: 'Inicia Sesión', text: 'Necesitas una cuenta para inscribirte.', icon: 'info', showCancelButton: true, confirmButtonText: 'Ir a Login', background: '#1e293b', color: '#fff' }).then((res) => {
@@ -44,25 +41,39 @@ export default function CursosPage() {
             return;
         }
 
-        // Si todo bien, abrimos el modal
         setSelectedCurso(curso);
     };
 
     return (
         <div className="container mx-auto pt-32 pb-20 px-6 animate-fade-in min-h-screen relative">
             
-            {/* RENDERIZAR MODAL SI HAY CURSO SELECCIONADO */}
             {selectedCurso && (
                 <PaymentModal 
                     curso={selectedCurso} 
                     onClose={() => setSelectedCurso(null)}
-                    onSuccess={() => navigate('/profile')} // Redirigir al éxito
+                    onSuccess={() => navigate('/profile')} 
                 />
             )}
 
-            {/* ... (Header y Buscador quedan igual) ... */}
+            <div className="text-center max-w-3xl mx-auto mb-16">
+                <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">Explora nuestros Cursos</h1>
+                <p className="text-slate-400 text-lg mb-8">Descubre conocimientos nuevos impartidos por expertos de la comunidad.</p>
+                
+                <div className="relative group">
+                    <div className="absolute inset-0 bg-indigo-500/20 blur-xl rounded-full group-hover:bg-indigo-500/30 transition-all"></div>
+                    <div className="relative flex items-center bg-slate-900 border border-slate-700 rounded-full px-6 py-4 shadow-2xl focus-within:border-indigo-500 transition-colors">
+                        <Search className="text-slate-500 w-6 h-6 mr-4" />
+                        <input 
+                            type="text" 
+                            placeholder="Buscar por tema, título o instructor..." 
+                            className="bg-transparent border-none outline-none text-white w-full placeholder-slate-500 text-lg"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                </div>
+            </div>
 
-            {/* Grid de Cursos */}
             {loading ? (
                 <div className="flex justify-center py-20"><Loader2 className="animate-spin text-indigo-500 w-10 h-10" /></div>
             ) : filteredCursos.length === 0 ? (
@@ -75,8 +86,7 @@ export default function CursosPage() {
                     {filteredCursos.map((curso) => (
                         <div key={curso.cursoId} className="group bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden hover:border-indigo-500/50 hover:shadow-[0_0_30px_-10px_rgba(99,102,241,0.3)] transition-all duration-300 flex flex-col">
                             
-                            {/* ... (Imagen y Header de card quedan igual) ... */}
-                             <div className={`h-48 w-full bg-gradient-to-br ${curso.cursoId % 2 === 0 ? 'from-indigo-900 to-slate-900' : 'from-slate-800 to-purple-900'} relative p-6 flex flex-col justify-end`}>
+                            <div className={`h-48 w-full bg-gradient-to-br ${curso.cursoId % 2 === 0 ? 'from-indigo-900 to-slate-900' : 'from-slate-800 to-purple-900'} relative p-6 flex flex-col justify-end`}>
                                 <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-xs font-bold text-white flex items-center gap-1">
                                     <Tag size={12} className="text-emerald-400" /> ${curso.costo} MXN
                                 </div>
@@ -88,7 +98,10 @@ export default function CursosPage() {
                                     <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-indigo-400 border border-white/5">
                                         {curso.asesorNombre.charAt(0).toUpperCase()}
                                     </div>
-                                    <span className="text-sm text-slate-300 font-medium">{curso.asesorNombre}</span>
+                                    {/* ENLACE AL PERFIL PÚBLICO */}
+                                    <Link to={`/asesor/${curso.asesorId}`} className="text-sm text-slate-300 font-medium hover:text-white hover:underline">
+                                        {curso.asesorNombre}
+                                    </Link>
                                 </div>
 
                                 <p className="text-slate-400 text-sm mb-6 line-clamp-3 flex-grow">
@@ -103,7 +116,6 @@ export default function CursosPage() {
                                     </div>
                                 </div>
 
-                                {/* BOTÓN DE INSCRIPCIÓN MODIFICADO */}
                                 <button 
                                     onClick={() => handleBuyClick(curso)}
                                     className="w-full py-3 bg-white/5 hover:bg-indigo-600 hover:text-white text-indigo-300 border border-indigo-500/30 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-transparent"

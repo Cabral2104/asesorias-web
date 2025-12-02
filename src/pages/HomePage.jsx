@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Search, Star, Shield, Zap, Globe, Loader2, Tag } from 'lucide-react';
+import { ArrowRight, Search, Star, Shield, Zap, Globe, Loader2, Tag, CheckCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import { useAuth } from '../context/AuthContext';
 import Swal from 'sweetalert2';
-import PaymentModal from '../components/ui/PaymentModal'; // <--- IMPORTANTE
+import PaymentModal from '../components/ui/PaymentModal';
 
 const fadeInUp = {
     hidden: { opacity: 0, y: 40 },
@@ -19,7 +19,7 @@ const staggerContainer = {
 export default function HomePage() {
     const [popularCourses, setPopularCourses] = useState([]);
     const [loadingCourses, setLoadingCourses] = useState(true);
-    const [selectedCurso, setSelectedCurso] = useState(null); // <--- ESTADO DEL MODAL
+    const [selectedCurso, setSelectedCurso] = useState(null); // Estado para el Modal de Pago
 
     const { isAuthenticated, user } = useAuth();
     const navigate = useNavigate();
@@ -35,7 +35,7 @@ export default function HomePage() {
             .finally(() => setLoadingCourses(false));
     }, []);
 
-    // --- FUNCIÓN DE CLICK (Igual que en CursosPage) ---
+    // Función para manejar el clic en "Inscribirse"
     const handleBuyClick = (curso) => {
         if (!isAuthenticated) {
             Swal.fire({
@@ -56,7 +56,7 @@ export default function HomePage() {
             return;
         }
 
-        // Abrir Modal
+        // Abrir Modal de Pago
         setSelectedCurso(curso);
     };
 
@@ -230,7 +230,56 @@ export default function HomePage() {
                 </div>
             </section>
 
-            {/* --- SECCIÓN TESTIMONIOS Y FOOTER (IGUAL QUE ANTES) --- */}
+            {/* --- SECCIÓN SOLICITUDES PERSONALIZADAS --- */}
+            <section className="py-24 bg-gradient-to-b from-slate-950 to-indigo-950/20 border-y border-white/5 relative overflow-hidden">
+                {/* Background Elements */}
+                <div className="absolute top-0 right-0 w-1/2 h-full bg-indigo-600/5 blur-[100px] pointer-events-none"></div>
+
+                <div className="container mx-auto px-6 relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
+                    <div className="md:w-1/2 text-left">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-bold mb-6">
+                            <Zap size={14} /> NUEVA FUNCIONALIDAD
+                        </div>
+                        <h2 className="text-4xl font-bold text-white mb-6">¿Necesitas ayuda con un tema específico?</h2>
+                        <p className="text-slate-400 text-lg mb-8 leading-relaxed">
+                            No te conformes con cursos genéricos. Crea una solicitud personalizada detallando tu problema y recibe ofertas de expertos dispuestos a ayudarte 1 a 1.
+                        </p>
+                        <ul className="space-y-4 mb-8 text-slate-300">
+                            <li className="flex items-center gap-3"><CheckCircle size={20} className="text-emerald-400" /> Publica tu duda o proyecto.</li>
+                            <li className="flex items-center gap-3"><CheckCircle size={20} className="text-emerald-400" /> Recibe cotizaciones de asesores verificados.</li>
+                            <li className="flex items-center gap-3"><CheckCircle size={20} className="text-emerald-400" /> Paga de forma segura solo al aceptar.</li>
+                        </ul>
+                        
+                        <Link to={isAuthenticated ? "/solicitudes" : "/login"} className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/25 inline-flex items-center gap-2 transition-all hover:translate-x-1">
+                            Crear Solicitud Ahora <ArrowRight size={20} />
+                        </Link>
+                    </div>
+
+                    {/* Ilustración Visual (Card Flotante) */}
+                    <div className="md:w-1/2 relative">
+                        <div className="relative z-10 bg-slate-900 border border-white/10 p-8 rounded-2xl shadow-2xl max-w-md mx-auto rotate-3 hover:rotate-0 transition-transform duration-500">
+                            <div className="flex items-center gap-4 mb-6 border-b border-white/5 pb-6">
+                                <div className="w-12 h-12 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-400 font-bold text-xl">S</div>
+                                <div>
+                                    <h4 className="text-white font-bold">Sofía R.</h4>
+                                    <p className="text-slate-500 text-xs">Estudiante de Ingeniería</p>
+                                </div>
+                                <span className="ml-auto text-xs bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded border border-emerald-500/20">Resuelto</span>
+                            </div>
+                            <h3 className="text-lg font-bold text-white mb-2">Ayuda con Ecuaciones Diferenciales</h3>
+                            <p className="text-slate-400 text-sm mb-4">"Necesito ayuda para resolver una serie de ejercicios de Laplace para mi examen de mañana..."</p>
+                            <div className="flex justify-between items-center text-xs text-slate-500">
+                                <span>3 Ofertas recibidas</span>
+                                <span>Hace 2 horas</span>
+                            </div>
+                        </div>
+                        {/* Decoración de fondo */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl blur-xl opacity-20 -z-10 transform rotate-6 scale-95"></div>
+                    </div>
+                </div>
+            </section>
+
+            {/* --- SECCIÓN TESTIMONIOS (MOCKUP) --- */}
             <section className="py-32 bg-slate-900/30 border-t border-white/5">
                 <div className="container mx-auto px-6 text-center">
                     <h2 className="text-3xl md:text-4xl font-bold text-white mb-16">Lo que dicen nuestros estudiantes</h2>
@@ -256,6 +305,7 @@ export default function HomePage() {
                 </div>
             </section>
 
+            {/* --- CALL TO ACTION --- */}
             <section className="py-24 relative overflow-hidden">
                 <div className="absolute inset-0 bg-indigo-600/20"></div>
                 <div className="container mx-auto px-6 relative z-10 text-center">
