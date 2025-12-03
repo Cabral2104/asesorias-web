@@ -38,6 +38,25 @@ export default function Navbar() {
                     <Link to="/" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">Inicio</Link>
                     <Link to="/cursos" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">Cursos</Link>
                     
+                    {/* ENLACES DINÁMICOS SEGÚN ROL */}
+                    {isAuthenticated && (
+                        <>
+                            {/* Si NO es asesor, es Estudiante (o Admin) -> Ve Solicitudes */}
+                            {!user?.roles?.includes('Asesor') && (
+                                <Link to="/solicitudes" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
+                                    Solicitudes
+                                </Link>
+                            )}
+
+                            {/* Si ES Asesor -> Ve Mercado */}
+                            {user?.roles?.includes('Asesor') && (
+                                <Link to="/mercado" className="text-sm font-medium text-slate-400 hover:text-emerald-400 transition-colors">
+                                    Mercado
+                                </Link>
+                            )}
+                        </>
+                    )}
+                    
                     <div className="h-4 w-px bg-white/10 mx-2"></div>
 
                     {!isAuthenticated ? (
@@ -51,7 +70,6 @@ export default function Navbar() {
                         </div>
                     ) : (
                         <div className="flex items-center gap-4">
-                            {/* CAMBIO: Ahora lleva a /profile */}
                             <Link 
                                 to="/profile"
                                 className="flex items-center gap-2 text-sm font-medium text-indigo-300 hover:text-indigo-200 bg-indigo-500/10 px-4 py-2 rounded-full border border-indigo-500/20 hover:bg-indigo-500/20 transition-all"
@@ -80,8 +98,18 @@ export default function Navbar() {
                         className="md:hidden bg-slate-950 border-b border-white/10 overflow-hidden"
                     >
                         <div className="px-6 py-6 flex flex-col gap-4">
+                            <Link to="/" className="text-slate-300 hover:text-white">Inicio</Link>
+                            <Link to="/cursos" className="text-slate-300 hover:text-white">Cursos</Link>
+                            
                              {isAuthenticated ? (
                                 <>
+                                    {!user?.roles?.includes('Asesor') && (
+                                        <Link to="/solicitudes" className="text-slate-300 hover:text-white">Mis Solicitudes</Link>
+                                    )}
+                                    {user?.roles?.includes('Asesor') && (
+                                        <Link to="/mercado" className="text-emerald-400 hover:text-white">Mercado de Ayuda</Link>
+                                    )}
+                                    
                                     <Link to="/profile" className="text-slate-300 hover:text-white">Mi Perfil</Link>
                                     <button onClick={handleLogout} className="text-red-400 text-left">Cerrar Sesión</button>
                                 </>

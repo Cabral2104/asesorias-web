@@ -1,38 +1,43 @@
 import { useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
-import { DollarSign, Users, BookOpen, Star, Check, X, FileText, ExternalLink, Clock, Briefcase, GraduationCap, Building2, Mail, ChevronRight } from 'lucide-react';
+import { DollarSign, Users, BookOpen, Star, Check, X, FileText, ExternalLink, Clock, Briefcase, GraduationCap, Mail, ChevronRight, Link as LinkIcon } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import Pagination from '../../components/ui/Pagination';
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState(null);
+    const [asesoriasStats, setAsesoriasStats] = useState(null);
     const [chartData, setChartData] = useState([]);
     const [asesores, setAsesores] = useState([]);
     const [solicitudes, setSolicitudes] = useState([]);
     const [loading, setLoading] = useState(true);
     
-    // Modales
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [selectedAsesor, setSelectedAsesor] = useState(null);
+    const [selectedJob, setSelectedJob] = useState(null);
 
-    // Paginación
     const [currentPageSolicitudes, setCurrentPageSolicitudes] = useState(1);
     const [currentPageAsesores, setCurrentPageAsesores] = useState(1);
     const itemsPerPage = 5;
 
+    const COLORS_USERS = ['#10b981', '#3b82f6'];
+    const COLORS_INCOME = ['#6366f1', '#10b981'];
+
     const fetchData = async () => {
         try {
-            const [statsRes, chartRes, asesoresRes, solicitudesRes] = await Promise.all([
+            const [statsRes, chartRes, asesoresRes, solicitudesRes, asesoriasRes] = await Promise.all([
                 axiosClient.get('/Admin/dashboard-stats'),
                 axiosClient.get('/Admin/revenue-chart'),
                 axiosClient.get('/Admin/dashboard-asesores'),
-                axiosClient.get('/Admin/pending-applications')
+                axiosClient.get('/Admin/pending-applications'),
+                axiosClient.get('/Admin/asesorias-stats')
             ]);
 
             setStats(statsRes.data);
             setChartData(chartRes.data);
             setAsesores(asesoresRes.data);
+            setAsesoriasStats(asesoriasRes.data);
             
             const sortedSolicitudes = solicitudesRes.data.sort((a, b) => 
                 new Date(b.fechaSolicitud) - new Date(a.fechaSolicitud)
@@ -49,6 +54,12 @@ export default function AdminDashboard() {
     useEffect(() => {
         fetchData();
     }, []);
+
+    const ensureProtocol = (url) => {
+        if (!url) return '#';
+        if (url.startsWith('http://') || url.startsWith('https://')) return url;
+        return `https://${url}`;
+    };
 
     const handleViewAsesor = async (asesorId) => {
         try {
@@ -90,64 +101,130 @@ export default function AdminDashboard() {
     const currentSolicitudes = solicitudes.slice((currentPageSolicitudes - 1) * itemsPerPage, currentPageSolicitudes * itemsPerPage);
     const currentAsesores = asesores.slice((currentPageAsesores - 1) * itemsPerPage, currentPageAsesores * itemsPerPage);
 
-    const pieData = [
+    const pieDataUsers = [
         { name: 'Aprobados', value: stats?.totalAsesoresAprobados || 0 },
         { name: 'Estudiantes', value: (stats?.totalUsuarios || 0) - (stats?.totalAsesoresAprobados || 0) },
     ];
-    const COLORS = ['#10b981', '#3b82f6'];
+
+    const incomeDistributionData = asesoriasStats ? [
+        { name: 'Cursos', value: stats?.ingresosTotales || 0 },
+        { name: 'Asesorías', value: asesoriasStats?.ingresosTotalesAsesorias || 0 }
+    ] : [];
 
     if (loading) return <div className="text-white text-center pt-40 animate-pulse">Cargando Panel de Administración...</div>;
 
     return (
         <div className="container mx-auto pt-32 pb-10 px-6 space-y-12 animate-fade-in relative">
-            
-            {/* STATS */}
+            {/* 1. TARJETAS KPI */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <StatCard title="Ingresos Totales" value={`$${stats?.ingresosTotales || 0}`} icon={DollarSign} color="text-emerald-400" bg="bg-emerald-500/10" />
+                <StatCard title="Ingresos Totales" value={`$${((stats?.ingresosTotales || 0) + (asesoriasStats?.ingresosTotalesAsesorias || 0)).toFixed(2)}`} icon={DollarSign} color="text-emerald-400" bg="bg-emerald-500/10" />
                 <StatCard title="Usuarios Totales" value={stats?.totalUsuarios || 0} icon={Users} color="text-blue-400" bg="bg-blue-500/10" />
-                <StatCard title="Cursos Activos" value={stats?.totalCursosPublicados || 0} icon={BookOpen} color="text-purple-400" bg="bg-purple-500/10" />
+                <StatCard title="Servicios Activos" value={(stats?.totalCursosPublicados || 0) + (asesoriasStats?.totalAsesoriasCerradas || 0)} icon={Briefcase} color="text-purple-400" bg="bg-purple-500/10" />
                 <StatCard title="Calidad Global" value={stats?.ratingPromedioGlobal.toFixed(1) || 0} icon={Star} color="text-yellow-400" bg="bg-yellow-500/10" />
             </div>
 
-            {/* GRÁFICAS */}
+            {/* 2. GRÁFICAS */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-slate-900/80 border border-white/10 rounded-2xl p-6 shadow-xl">
-                    <h3 className="text-lg font-bold text-white mb-6">Ingresos Mensuales ({new Date().getFullYear()})</h3>
+                    <h3 className="text-lg font-bold text-white mb-6">Ingresos Mensuales</h3>
                     <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={chartData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                                 <XAxis dataKey="mes" stroke="#94a3b8" />
                                 <YAxis stroke="#94a3b8" />
-                                <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }} />
-                                <Bar dataKey="ingresos" fill="#6366f1" radius={[4, 4, 0, 0]} name="Ingresos ($)" />
+                                <Tooltip 
+                                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }} 
+                                    cursor={{fill: 'rgba/255, 255, 255, 0.05)'}}
+                                />
+                                <Legend verticalAlign="top" height={36}/>
+                                <Bar dataKey="ingresosCursos" name="Cursos" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="ingresosAsesorias" name="Asesorías" fill="#10b981" radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
-                <div className="bg-slate-900/80 border border-white/10 rounded-2xl p-6 shadow-xl">
-                    <h3 className="text-lg font-bold text-white mb-6">Distribución Usuarios</h3>
-                    <div className="h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                                    {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                                </Pie>
-                                <Tooltip contentStyle={{ backgroundColor: '#1e293b' }} />
-                                <Legend />
-                            </PieChart>
-                        </ResponsiveContainer>
+                <div className="flex flex-col gap-6">
+                    <div className="bg-slate-900/80 border border-white/10 rounded-2xl p-6 shadow-xl flex-1">
+                        <h3 className="text-sm font-bold text-white mb-4">Fuente de Ingresos</h3>
+                        <div className="h-[150px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={incomeDistributionData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={5} dataKey="value">
+                                        {incomeDistributionData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS_INCOME[index % COLORS_INCOME.length]} />)}
+                                    </Pie>
+                                    <Tooltip contentStyle={{ backgroundColor: '#1e293b' }} />
+                                    <Legend verticalAlign="middle" align="right" layout="vertical" iconSize={8}/>
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                    <div className="bg-slate-900/80 border border-white/10 rounded-2xl p-6 shadow-xl flex-1">
+                        <h3 className="text-sm font-bold text-white mb-4">Usuarios</h3>
+                        <div className="h-[150px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={pieDataUsers} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={5} dataKey="value">
+                                        {pieDataUsers.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS_USERS[index % COLORS_USERS.length]} />)}
+                                    </Pie>
+                                    <Tooltip contentStyle={{ backgroundColor: '#1e293b' }} />
+                                    <Legend verticalAlign="middle" align="right" layout="vertical" iconSize={8}/>
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* SOLICITUDES PENDIENTES */}
+            {/* 3. ASESORÍAS PERSONALIZADAS */}
+            {asesoriasStats && (
+                <div className="bg-slate-900/60 border border-indigo-500/30 rounded-2xl p-8">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                            <Check className="text-emerald-400" /> Asesorías Personalizadas Cerradas
+                        </h3>
+                        <div className="text-right">
+                            <p className="text-xs text-slate-400 uppercase">Total Generado</p>
+                            <p className="text-xl font-bold text-emerald-400 font-mono">${asesoriasStats.ingresosTotalesAsesorias}</p>
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto bg-slate-950 rounded-xl border border-white/5">
+                        <table className="w-full text-left text-sm text-slate-400">
+                            <thead className="bg-slate-900/50 text-xs uppercase font-bold text-slate-500">
+                                <tr>
+                                    <th className="px-6 py-3">Estudiante</th>
+                                    <th className="px-6 py-3">Materia / Tema</th>
+                                    <th className="px-6 py-3">Precio</th>
+                                    <th className="px-6 py-3">Fecha Cierre</th>
+                                    <th className="px-6 py-3 text-right">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {asesoriasStats.ultimasAsesorias.map(job => (
+                                    <tr key={job.solicitudId} onClick={() => setSelectedJob(job)} className="hover:bg-white/5 cursor-pointer transition-colors">
+                                        <td className="px-6 py-3 text-white font-medium">{job.nombreEstudiante}</td>
+                                        <td className="px-6 py-3"><span className="bg-slate-800 px-2 py-0.5 rounded text-xs mr-2">{job.materia}</span>{job.tema}</td>
+                                        <td className="px-6 py-3 font-mono text-emerald-400 font-bold">${job.precio}</td>
+                                        <td className="px-6 py-3">{new Date(job.fechaAceptacion).toLocaleDateString()}</td>
+                                        <td className="px-6 py-3 text-right"><ChevronRight size={16} /></td>
+                                    </tr>
+                                ))}
+                                {asesoriasStats.ultimasAsesorias.length === 0 && (
+                                    <tr><td colSpan="5" className="text-center py-4 italic">No hay registros recientes.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* 4. SOLICITUDES DE ROL ASESOR */}
             <div className="bg-slate-900/80 border border-white/10 rounded-2xl overflow-hidden shadow-xl">
                 <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-950/50">
                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                        <Clock className="text-orange-400" /> Solicitudes Pendientes
+                        <Clock className="text-orange-400" /> Solicitudes de Nuevo Asesor
                     </h3>
-                    <span className="text-xs font-bold bg-orange-500/10 text-orange-400 px-3 py-1 rounded-full border border-orange-500/20">{solicitudes.length} nuevas</span>
+                    <span className="text-xs font-bold bg-orange-500/10 text-orange-400 px-3 py-1 rounded-full border border-orange-500/20">{solicitudes.length} pendientes</span>
                 </div>
                 
                 {solicitudes.length === 0 ? (
@@ -171,10 +248,7 @@ export default function AdminDashboard() {
                                             <td className="px-6 py-4">{sol.especialidad}</td>
                                             <td className="px-6 py-4 text-xs">{new Date(sol.fechaSolicitud).toLocaleDateString()}</td>
                                             <td className="px-6 py-4 text-center">
-                                                <button 
-                                                    onClick={() => setSelectedRequest(sol)}
-                                                    className="px-4 py-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 rounded-lg text-xs font-bold border border-indigo-500/20 transition-all flex items-center justify-center gap-2 mx-auto"
-                                                >
+                                                <button onClick={() => setSelectedRequest(sol)} className="px-4 py-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 rounded-lg text-xs font-bold border border-indigo-500/20 transition-all flex items-center justify-center gap-2 mx-auto">
                                                     <FileText size={14} /> Revisar
                                                 </button>
                                             </td>
@@ -190,11 +264,10 @@ export default function AdminDashboard() {
                 )}
             </div>
             
-            {/* TOP ASESORES */}
+            {/* 5. DIRECTORIO DE ASESORES (ACTUALIZADO: INGRESOS) */}
             <div className="bg-slate-900/80 border border-white/10 rounded-2xl overflow-hidden shadow-xl">
                 <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-950/50">
-                    <h3 className="text-xl font-bold text-white">Top Asesores</h3>
-                    <p className="text-xs text-slate-400">Haz clic en un asesor para ver detalles.</p>
+                    <h3 className="text-xl font-bold text-white">Directorio de Asesores</h3>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm text-slate-400">
@@ -202,28 +275,26 @@ export default function AdminDashboard() {
                             <tr>
                                 <th className="px-6 py-4">Asesor</th>
                                 <th className="px-6 py-4 text-center">Cursos</th>
-                                <th className="px-6 py-4 text-right">Ingresos</th>
+                                <th className="px-6 py-4 text-right">Ingresos Cursos</th>
+                                <th className="px-6 py-4 text-right">Ingresos Asesorías</th>
+                                <th className="px-6 py-4 text-right">Total</th>
                                 <th className="px-6 py-4 text-right">Rating</th>
                                 <th className="px-6 py-4"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {currentAsesores.map((asesor) => (
-                                <tr 
-                                    key={asesor.asesorId} 
-                                    onClick={() => handleViewAsesor(asesor.asesorId)}
-                                    className="hover:bg-white/5 transition-colors cursor-pointer group"
-                                >
+                                <tr key={asesor.asesorId} onClick={() => handleViewAsesor(asesor.asesorId)} className="hover:bg-white/5 transition-colors cursor-pointer group">
                                     <td className="px-6 py-4 font-medium text-white flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white">
-                                            {asesor.nombreAsesor.substring(0, 2).toUpperCase()}
-                                        </div>
+                                        <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-white text-xs">{asesor.nombreAsesor.charAt(0)}</div>
                                         {asesor.nombreAsesor}
                                     </td>
-                                    <td className="px-6 py-4 text-center"><span className="bg-slate-800 px-2 py-1 rounded text-xs text-white">{asesor.totalCursos}</span></td>
-                                    <td className="px-6 py-4 text-right text-emerald-400 font-mono font-medium">${asesor.ingresosGenerados}</td>
-                                    <td className="px-6 py-4 text-right flex justify-end gap-1 text-yellow-400 font-bold">{asesor.ratingPromedio.toFixed(1)} <Star size={14} fill="currentColor" /></td>
-                                    <td className="px-6 py-4 text-right text-slate-600 group-hover:text-indigo-400"><ChevronRight size={16} /></td>
+                                    <td className="px-6 py-4 text-center">{asesor.totalCursos}</td>
+                                    <td className="px-6 py-4 text-right font-mono text-slate-300">${asesor.ingresosCursos}</td>
+                                    <td className="px-6 py-4 text-right font-mono text-slate-300">${asesor.ingresosAsesorias}</td>
+                                    <td className="px-6 py-4 text-right font-mono text-emerald-400 font-bold">${asesor.ingresosGenerados}</td>
+                                    <td className="px-6 py-4 text-right text-yellow-400 font-bold flex justify-end items-center gap-1">{asesor.ratingPromedio.toFixed(1)} <Star size={14} fill="currentColor"/></td>
+                                    <td className="px-6 py-4 text-right"><ChevronRight size={16} /></td>
                                 </tr>
                             ))}
                         </tbody>
@@ -234,38 +305,71 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* --- MODAL DETALLE DE SOLICITUD (CON LINK) --- */}
+            {/* --- MODALES --- */}
+            
+            {/* Detalle Trabajo */}
+            {selectedJob && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+                        <div className="p-5 border-b border-white/10 flex justify-between items-center bg-slate-950/50">
+                            <h3 className="font-bold text-white">Detalle del Servicio</h3>
+                            <button onClick={() => setSelectedJob(null)} className="text-slate-400 hover:text-white"><X size={20}/></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase">Tema</label>
+                                <p className="text-white text-lg font-bold">{selectedJob.tema}</p>
+                                <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-1 rounded mt-1 inline-block">{selectedJob.materia}</span>
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase">Descripción</label>
+                                <p className="text-slate-300 text-sm mt-1 bg-slate-950/50 p-3 rounded-lg border border-white/5 max-h-40 overflow-y-auto">"{selectedJob.descripcion}"</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Cliente</label>
+                                    <p className="text-white text-sm">{selectedJob.nombreEstudiante}</p>
+                                    <p className="text-slate-500 text-xs">{selectedJob.emailEstudiante}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Costo Final</label>
+                                    <p className="text-emerald-400 font-mono font-bold text-lg">${selectedJob.precio}</p>
+                                </div>
+                            </div>
+                            {selectedJob.archivoUrl && (
+                                <div className="pt-2">
+                                    <a href={ensureProtocol(selectedJob.archivoUrl)} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 text-sm font-medium">
+                                        <LinkIcon size={16} /> Ver Material Adjunto
+                                    </a>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Solicitud Rol */}
             {selectedRequest && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-slate-900 border border-white/10 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-950/50">
-                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                                <FileText className="text-indigo-400" /> Revisión de Solicitud
-                            </h2>
+                            <h2 className="text-xl font-bold text-white flex items-center gap-2"><FileText className="text-indigo-400" /> Revisión de Solicitud</h2>
                             <button onClick={() => setSelectedRequest(null)} className="text-slate-400 hover:text-white transition-colors"><X /></button>
                         </div>
-                        
                         <div className="p-8 overflow-y-auto custom-scrollbar space-y-6">
-                            
-                            {/* Header del Postulante */}
                             <div className="flex items-center gap-4 mb-6">
-                                <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-2xl text-slate-400 font-bold">
-                                    {selectedRequest.userName.charAt(0)}
-                                </div>
+                                <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-2xl text-slate-400 font-bold">{selectedRequest.userName.charAt(0)}</div>
                                 <div>
                                     <h3 className="text-2xl font-bold text-white">{selectedRequest.userName}</h3>
                                     <p className="text-indigo-400">{selectedRequest.especialidad}</p>
                                     <p className="text-slate-500 text-sm">{selectedRequest.email}</p>
                                 </div>
                             </div>
-
-                            {/* Datos Académicos y Experiencia */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="bg-slate-950/50 p-4 rounded-xl border border-white/5">
                                     <h4 className="text-slate-400 text-xs uppercase font-bold mb-3 flex items-center gap-2"><GraduationCap size={14}/> Formación</h4>
                                     <p className="text-white font-medium">{selectedRequest.nivelEstudios}</p>
                                     <p className="text-slate-400 text-sm">{selectedRequest.institucionEducativa}</p>
-                                    <p className="text-slate-500 text-xs mt-1">Graduado: {selectedRequest.anioGraduacion || 'N/A'}</p>
                                 </div>
                                 <div className="bg-slate-950/50 p-4 rounded-xl border border-white/5">
                                     <h4 className="text-slate-400 text-xs uppercase font-bold mb-3 flex items-center gap-2"><Briefcase size={14}/> Experiencia</h4>
@@ -273,60 +377,29 @@ export default function AdminDashboard() {
                                     <p className="text-slate-400 text-sm mt-1 line-clamp-3">{selectedRequest.experienciaLaboral}</p>
                                 </div>
                             </div>
-
                             <div className="bg-slate-950/50 p-4 rounded-xl border border-white/5">
                                 <h4 className="text-slate-400 text-xs uppercase font-bold mb-2">Sobre mí</h4>
                                 <p className="text-slate-300 text-sm leading-relaxed">{selectedRequest.descripcion}</p>
                             </div>
-
-                            {/* --- SECCIÓN DOCUMENTO (LINK EXTERNO) --- */}
                             <div className="bg-indigo-500/10 p-5 rounded-xl border border-indigo-500/20 flex flex-col sm:flex-row justify-between items-center gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-indigo-500 rounded-lg text-white">
-                                        <FileText size={24} />
-                                    </div>
-                                    <div>
-                                        <p className="text-white font-bold text-sm">Documentación / Portafolio</p>
-                                        <p className="text-indigo-200 text-xs">Enlace proporcionado por el usuario</p>
-                                    </div>
-                                </div>
-                                
-                                <a 
-                                    href={selectedRequest.documentoVerificacionUrl} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="px-4 py-2 bg-white text-indigo-900 font-bold rounded-lg text-sm hover:bg-slate-200 transition-colors flex items-center gap-2"
-                                >
-                                    <ExternalLink size={16} /> Visitar Enlace
+                                <a href={ensureProtocol(selectedRequest.documentoVerificacionUrl)} target="_blank" rel="noreferrer" className="px-4 py-2 bg-white text-indigo-900 font-bold rounded-lg text-sm hover:bg-slate-200 transition-colors flex items-center gap-2">
+                                    <ExternalLink size={16} /> Ver Documento
                                 </a>
                             </div>
-
                         </div>
-
                         <div className="p-6 border-t border-white/10 bg-slate-950/50 flex justify-end gap-3">
-                            <button 
-                                onClick={() => handleReject(selectedRequest.usuarioId)}
-                                className="px-5 py-2.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 rounded-xl font-bold text-sm transition-all flex items-center gap-2"
-                            >
-                                <X size={16} /> Rechazar
-                            </button>
-                            <button 
-                                onClick={() => handleApprove(selectedRequest.usuarioId)}
-                                className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm transition-all flex items-center gap-2 shadow-lg shadow-emerald-500/20"
-                            >
-                                <Check size={16} /> Aprobar Asesor
-                            </button>
+                            <button onClick={() => handleReject(selectedRequest.usuarioId)} className="px-5 py-2.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 rounded-xl font-bold text-sm transition-all">Rechazar</button>
+                            <button onClick={() => handleApprove(selectedRequest.usuarioId)} className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold text-sm transition-all">Aprobar</button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Modal de Detalle Asesor (Igual que antes) */}
+            {/* Detalle Asesor */}
             {selectedAsesor && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-slate-900 border border-white/10 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                        
-                        <div className="relative h-32 bg-gradient-to-r from-indigo-600 to-purple-600">
+                    <div className="bg-slate-900 border border-white/10 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="relative h-32 bg-gradient-to-r from-indigo-600 to-purple-600 shrink-0">
                             <button onClick={() => setSelectedAsesor(null)} className="absolute top-4 right-4 bg-black/20 p-2 rounded-full text-white hover:bg-black/40 transition-colors"><X size={20} /></button>
                             <div className="absolute -bottom-10 left-8 flex items-end gap-4">
                                 <div className="w-24 h-24 rounded-full bg-slate-950 border-4 border-slate-900 flex items-center justify-center text-3xl font-bold text-white shadow-xl">
@@ -338,50 +411,50 @@ export default function AdminDashboard() {
                                 </div>
                             </div>
                         </div>
-
                         <div className="p-8 pt-14 overflow-y-auto custom-scrollbar">
-                            <div className="grid grid-cols-3 gap-4 mb-8">
+                            <div className="grid grid-cols-4 gap-4 mb-8">
                                 <div className="bg-slate-800/50 p-4 rounded-xl text-center border border-white/5">
-                                    <p className="text-xs text-slate-400 uppercase">Ingresos Totales</p>
+                                    <p className="text-xs text-slate-400 uppercase font-bold">Total Ingresos</p>
                                     <p className="text-2xl font-bold text-emerald-400">${selectedAsesor.totalIngresos}</p>
                                 </div>
                                 <div className="bg-slate-800/50 p-4 rounded-xl text-center border border-white/5">
-                                    <p className="text-xs text-slate-400 uppercase">Estudiantes</p>
+                                    <p className="text-xs text-slate-400 uppercase font-bold">Estudiantes</p>
                                     <p className="text-2xl font-bold text-blue-400">{selectedAsesor.totalEstudiantes}</p>
                                 </div>
                                 <div className="bg-slate-800/50 p-4 rounded-xl text-center border border-white/5">
-                                    <p className="text-xs text-slate-400 uppercase">Rating</p>
-                                    <p className="text-2xl font-bold text-yellow-400 flex justify-center items-center gap-1">
-                                        {selectedAsesor.ratingPromedio.toFixed(1)} <Star size={16} fill="currentColor" />
-                                    </p>
+                                    <p className="text-xs text-slate-400 uppercase font-bold">Cursos</p>
+                                    <p className="text-2xl font-bold text-white">{selectedAsesor.totalCursos}</p>
+                                </div>
+                                <div className="bg-slate-800/50 p-4 rounded-xl text-center border border-white/5">
+                                    <p className="text-xs text-slate-400 uppercase font-bold">Asesorías</p>
+                                    <p className="text-2xl font-bold text-white">{selectedAsesor.totalAsesorias}</p>
                                 </div>
                             </div>
-
-                            <div className="grid grid-cols-2 gap-6 mb-8">
-                                <div className="space-y-3">
-                                    <h4 className="text-white font-bold flex items-center gap-2"><Mail size={16} className="text-indigo-400"/> Contacto</h4>
-                                    <p className="text-slate-400 text-sm">{selectedAsesor.email}</p>
-                                    <p className="text-slate-400 text-sm">{selectedAsesor.telefono}</p>
-                                </div>
-                            </div>
-
-                            <h3 className="text-white font-bold mb-4 border-b border-white/10 pb-2">Cursos Creados</h3>
-                            <div className="space-y-3">
-                                {selectedAsesor.cursos.map((curso, idx) => (
-                                    <div key={idx} className="flex justify-between items-center bg-slate-950/30 p-3 rounded-lg border border-white/5">
-                                        <div>
-                                            <p className="text-white font-medium">{curso.titulo}</p>
-                                            <p className="text-xs text-slate-500">{curso.inscritos} estudiantes inscritos</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <span className={`text-xs px-2 py-1 rounded ${curso.estado ? 'bg-emerald-500/10 text-emerald-400' : 'bg-yellow-500/10 text-yellow-400'}`}>
-                                                {curso.estado ? 'Activo' : 'Borrador'}
-                                            </span>
-                                            <p className="text-slate-300 font-mono text-sm mt-1">${curso.costo}</p>
-                                        </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div>
+                                    <h3 className="text-white font-bold mb-4 border-b border-white/10 pb-2">Cursos Publicados</h3>
+                                    <div className="space-y-3">
+                                        {selectedAsesor.cursos.map((curso, idx) => (
+                                            <div key={idx} className="flex justify-between items-center bg-slate-950/30 p-3 rounded-lg border border-white/5">
+                                                <div><p className="text-white font-medium line-clamp-1">{curso.titulo}</p><p className="text-xs text-slate-500">{curso.inscritos} inscritos</p></div>
+                                                <span className="text-emerald-400 font-mono text-sm font-bold">${curso.costo}</span>
+                                            </div>
+                                        ))}
+                                        {selectedAsesor.cursos.length === 0 && <p className="text-slate-500 text-sm italic">Sin cursos.</p>}
                                     </div>
-                                ))}
-                                {selectedAsesor.cursos.length === 0 && <p className="text-slate-500 text-sm italic">No ha creado cursos aún.</p>}
+                                </div>
+                                <div>
+                                    <h3 className="text-white font-bold mb-4 border-b border-white/10 pb-2">Historial de Asesorías</h3>
+                                    <div className="space-y-3">
+                                        {selectedAsesor.asesorias && selectedAsesor.asesorias.map((asesoria, idx) => (
+                                            <div key={idx} className="flex justify-between items-center bg-slate-950/30 p-3 rounded-lg border border-white/5">
+                                                <div><p className="text-white font-medium">{asesoria.materia}</p><p className="text-xs text-slate-500">{new Date(asesoria.fecha).toLocaleDateString()} - {asesoria.estudiante}</p></div>
+                                                <span className="text-emerald-400 font-mono text-sm font-bold">${asesoria.precio}</span>
+                                            </div>
+                                        ))}
+                                        {(!selectedAsesor.asesorias || selectedAsesor.asesorias.length === 0) && <p className="text-slate-500 text-sm italic">Sin asesorías privadas.</p>}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
