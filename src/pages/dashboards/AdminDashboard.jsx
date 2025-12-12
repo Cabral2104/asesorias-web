@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
-import { DollarSign, Users, BookOpen, Star, Check, X, FileText, ExternalLink, Clock, Briefcase, GraduationCap, Mail, ChevronRight, Link as LinkIcon } from 'lucide-react';
+import { DollarSign, Users, Star, Check, X, FileText, ExternalLink, Clock, Briefcase, GraduationCap, ChevronRight, Link as LinkIcon } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import Pagination from '../../components/ui/Pagination';
+import ExportMenu from '../../components/ui/ExportMenu'; // <--- IMPORTANTE
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState(null);
@@ -13,31 +14,38 @@ export default function AdminDashboard() {
     const [solicitudes, setSolicitudes] = useState([]);
     const [loading, setLoading] = useState(true);
     
+    // Estados para Modales
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [selectedAsesor, setSelectedAsesor] = useState(null);
     const [selectedJob, setSelectedJob] = useState(null);
 
+    // Estados de Paginación
     const [currentPageSolicitudes, setCurrentPageSolicitudes] = useState(1);
     const [currentPageAsesores, setCurrentPageAsesores] = useState(1);
-    const itemsPerPage = 5;
+    const [currentPageAsesorias, setCurrentPageAsesorias] = useState(1); // Server side
+    
+    // Paginación para Cursos dentro del Modal
+    const [currentPageAsesorCursos, setCurrentPageAsesorCursos] = useState(1);
+    const itemsPerModalPage = 4;
+
+    const itemsPerPage = 5; 
+    const itemsPerPageAsesorias = 10; 
 
     const COLORS_USERS = ['#10b981', '#3b82f6'];
     const COLORS_INCOME = ['#6366f1', '#10b981'];
 
     const fetchData = async () => {
         try {
-            const [statsRes, chartRes, asesoresRes, solicitudesRes, asesoriasRes] = await Promise.all([
+            const [statsRes, chartRes, asesoresRes, solicitudesRes] = await Promise.all([
                 axiosClient.get('/Admin/dashboard-stats'),
                 axiosClient.get('/Admin/revenue-chart'),
                 axiosClient.get('/Admin/dashboard-asesores'),
-                axiosClient.get('/Admin/pending-applications'),
-                axiosClient.get('/Admin/asesorias-stats')
+                axiosClient.get('/Admin/pending-applications')
             ]);
 
             setStats(statsRes.data);
             setChartData(chartRes.data);
             setAsesores(asesoresRes.data);
-            setAsesoriasStats(asesoriasRes.data);
             
             const sortedSolicitudes = solicitudesRes.data.sort((a, b) => 
                 new Date(b.fechaSolicitud) - new Date(a.fechaSolicitud)
@@ -51,9 +59,22 @@ export default function AdminDashboard() {
         }
     };
 
+    const fetchAsesorias = async (page) => {
+        try {
+            const res = await axiosClient.get(`/Admin/asesorias-stats?page=${page}&pageSize=${itemsPerPageAsesorias}`);
+            setAsesoriasStats(res.data);
+        } catch (error) {
+            console.error("Error cargando asesorías:", error);
+        }
+    };
+
     useEffect(() => {
         fetchData();
     }, []);
+
+    useEffect(() => {
+        fetchAsesorias(currentPageAsesorias);
+    }, [currentPageAsesorias]);
 
     const ensureProtocol = (url) => {
         if (!url) return '#';
@@ -65,6 +86,7 @@ export default function AdminDashboard() {
         try {
             const res = await axiosClient.get(`/Admin/asesor-detail/${asesorId}`);
             setSelectedAsesor(res.data);
+            setCurrentPageAsesorCursos(1);
         } catch (error) {
             Swal.fire('Error', 'No se pudieron cargar los detalles.', 'error');
         }
@@ -100,6 +122,10 @@ export default function AdminDashboard() {
 
     const currentSolicitudes = solicitudes.slice((currentPageSolicitudes - 1) * itemsPerPage, currentPageSolicitudes * itemsPerPage);
     const currentAsesores = asesores.slice((currentPageAsesores - 1) * itemsPerPage, currentPageAsesores * itemsPerPage);
+    
+    const currentModalCourses = selectedAsesor 
+        ? selectedAsesor.cursos.slice((currentPageAsesorCursos - 1) * itemsPerModalPage, currentPageAsesorCursos * itemsPerModalPage) 
+        : [];
 
     const pieDataUsers = [
         { name: 'Aprobados', value: stats?.totalAsesoresAprobados || 0 },
@@ -123,20 +149,32 @@ export default function AdminDashboard() {
                 <StatCard title="Calidad Global" value={stats?.ratingPromedioGlobal.toFixed(1) || 0} icon={Star} color="text-yellow-400" bg="bg-yellow-500/10" />
             </div>
 
-            {/* 2. GRÁFICAS */}
+            {/* 2. GRÁFICAS Y REPORTE DE INGRESOS */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-slate-900/80 border border-white/10 rounded-2xl p-6 shadow-xl">
-                    <h3 className="text-lg font-bold text-white mb-6">Ingresos Mensuales</h3>
+                <div className="lg:col-span-2 bg-slate-900/80 border border-white/10 rounded-2xl p-6 shadow-xl relative">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-lg font-bold text-white">Ingresos Mensuales</h3>
+                        
+                        {/* --- EXPORTAR INGRESOS --- */}
+                        <ExportMenu 
+                            endpoint="/Admin/revenue-chart" 
+                            fileName="Reporte_Ingresos_Lumina" 
+                            title="Reporte Financiero Mensual"
+                            formatData={(item) => ({
+                                Mes: item.mes,
+                                Ingresos_Cursos: `$${item.ingresosCursos}`,
+                                Ingresos_Asesorias: `$${item.ingresosAsesorias}`,
+                                Total: `$${(item.ingresosCursos + item.ingresosAsesorias)}`
+                            })}
+                        />
+                    </div>
                     <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={chartData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                                 <XAxis dataKey="mes" stroke="#94a3b8" />
                                 <YAxis stroke="#94a3b8" />
-                                <Tooltip 
-                                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }} 
-                                    cursor={{fill: 'rgba/255, 255, 255, 0.05)'}}
-                                />
+                                <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }} cursor={{fill: 'rgba(255, 255, 255, 0.05)'}} />
                                 <Legend verticalAlign="top" height={36}/>
                                 <Bar dataKey="ingresosCursos" name="Cursos" fill="#6366f1" radius={[4, 4, 0, 0]} />
                                 <Bar dataKey="ingresosAsesorias" name="Asesorías" fill="#10b981" radius={[4, 4, 0, 0]} />
@@ -176,19 +214,36 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* 3. ASESORÍAS PERSONALIZADAS */}
+            {/* 3. ASESORÍAS PERSONALIZADAS CERRADAS */}
             {asesoriasStats && (
-                <div className="bg-slate-900/60 border border-indigo-500/30 rounded-2xl p-8">
-                    <div className="flex justify-between items-center mb-6">
+                <div className="bg-slate-900/60 border border-indigo-500/30 rounded-2xl overflow-hidden">
+                    <div className="p-8 border-b border-white/10 flex justify-between items-center">
                         <h3 className="text-xl font-bold text-white flex items-center gap-2">
                             <Check className="text-emerald-400" /> Asesorías Personalizadas Cerradas
                         </h3>
-                        <div className="text-right">
-                            <p className="text-xs text-slate-400 uppercase">Total Generado</p>
-                            <p className="text-xl font-bold text-emerald-400 font-mono">${asesoriasStats.ingresosTotalesAsesorias}</p>
+                        <div className="flex items-center gap-4">
+                            <div className="text-right">
+                                <p className="text-xs text-slate-400 uppercase">Total Generado</p>
+                                <p className="text-xl font-bold text-emerald-400 font-mono">${asesoriasStats.ingresosTotalesAsesorias.toFixed(2)}</p>
+                            </div>
+                            
+                            {/* --- EXPORTAR ASESORÍAS --- */}
+                            <ExportMenu 
+                                endpoint="/Admin/asesorias-stats" 
+                                fileName="Reporte_Asesorias_Cerradas"
+                                title="Historial de Asesorías Cerradas"
+                                formatData={(item) => ({
+                                    ID: item.solicitudId,
+                                    Materia: item.materia,
+                                    Tema: item.tema,
+                                    Precio: `$${item.precio}`,
+                                    Estudiante: item.nombreEstudiante,
+                                    Fecha_Cierre: new Date(item.fechaAceptacion).toLocaleDateString()
+                                })}
+                            />
                         </div>
                     </div>
-                    <div className="overflow-x-auto bg-slate-950 rounded-xl border border-white/5">
+                    <div className="overflow-x-auto bg-slate-950">
                         <table className="w-full text-left text-sm text-slate-400">
                             <thead className="bg-slate-900/50 text-xs uppercase font-bold text-slate-500">
                                 <tr>
@@ -200,7 +255,7 @@ export default function AdminDashboard() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                {asesoriasStats.ultimasAsesorias.map(job => (
+                                {asesoriasStats.ultimasAsesorias?.map(job => (
                                     <tr key={job.solicitudId} onClick={() => setSelectedJob(job)} className="hover:bg-white/5 cursor-pointer transition-colors">
                                         <td className="px-6 py-3 text-white font-medium">{job.nombreEstudiante}</td>
                                         <td className="px-6 py-3"><span className="bg-slate-800 px-2 py-0.5 rounded text-xs mr-2">{job.materia}</span>{job.tema}</td>
@@ -209,12 +264,17 @@ export default function AdminDashboard() {
                                         <td className="px-6 py-3 text-right"><ChevronRight size={16} /></td>
                                     </tr>
                                 ))}
-                                {asesoriasStats.ultimasAsesorias.length === 0 && (
+                                {asesoriasStats.ultimasAsesorias?.length === 0 && (
                                     <tr><td colSpan="5" className="text-center py-4 italic">No hay registros recientes.</td></tr>
                                 )}
                             </tbody>
                         </table>
                     </div>
+                    {asesoriasStats.totalAsesoriasCerradas > itemsPerPageAsesorias && (
+                        <div className="p-4 border-t border-white/10 bg-slate-950/30">
+                            <Pagination itemsPerPage={itemsPerPageAsesorias} totalItems={asesoriasStats.totalAsesoriasCerradas} paginate={setCurrentPageAsesorias} currentPage={currentPageAsesorias} />
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -224,7 +284,23 @@ export default function AdminDashboard() {
                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
                         <Clock className="text-orange-400" /> Solicitudes de Nuevo Asesor
                     </h3>
-                    <span className="text-xs font-bold bg-orange-500/10 text-orange-400 px-3 py-1 rounded-full border border-orange-500/20">{solicitudes.length} pendientes</span>
+                    <div className="flex gap-3 items-center">
+                        <span className="text-xs font-bold bg-orange-500/10 text-orange-400 px-3 py-1 rounded-full border border-orange-500/20">{solicitudes.length} pendientes</span>
+                        
+                        {/* --- EXPORTAR SOLICITUDES --- */}
+                        <ExportMenu 
+                            endpoint="/Admin/pending-applications" 
+                            fileName="Solicitudes_Pendientes_Asesores"
+                            title="Solicitudes de Ingreso - Asesores"
+                            formatData={(item) => ({
+                                Usuario: item.userName,
+                                Email: item.email,
+                                Especialidad: item.especialidad,
+                                Nivel_Estudios: item.nivelEstudios,
+                                Experiencia: `${item.aniosExperiencia} años`
+                            })}
+                        />
+                    </div>
                 </div>
                 
                 {solicitudes.length === 0 ? (
@@ -264,10 +340,24 @@ export default function AdminDashboard() {
                 )}
             </div>
             
-            {/* 5. DIRECTORIO DE ASESORES (ACTUALIZADO: INGRESOS) */}
+            {/* 5. DIRECTORIO DE ASESORES */}
             <div className="bg-slate-900/80 border border-white/10 rounded-2xl overflow-hidden shadow-xl">
                 <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-950/50">
                     <h3 className="text-xl font-bold text-white">Directorio de Asesores</h3>
+                    
+                    {/* --- EXPORTAR DIRECTORIO --- */}
+                    <ExportMenu 
+                        endpoint="/Admin/dashboard-asesores" 
+                        fileName="Directorio_Asesores_Activos"
+                        title="Directorio Oficial de Asesores"
+                        formatData={(item) => ({
+                            ID: item.asesorId,
+                            Nombre: item.nombreAsesor,
+                            Cursos_Activos: item.totalCursos,
+                            Ingresos_Totales: `$${item.ingresosGenerados}`,
+                            Rating: item.ratingPromedio.toFixed(1)
+                        })}
+                    />
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm text-slate-400">
@@ -305,9 +395,7 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* --- MODALES --- */}
-            
-            {/* Detalle Trabajo */}
+            {/* --- MODALES (Sin cambios) --- */}
             {selectedJob && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
@@ -348,7 +436,6 @@ export default function AdminDashboard() {
                 </div>
             )}
 
-            {/* Solicitud Rol */}
             {selectedRequest && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-slate-900 border border-white/10 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -395,7 +482,6 @@ export default function AdminDashboard() {
                 </div>
             )}
 
-            {/* Detalle Asesor */}
             {selectedAsesor && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-slate-900 border border-white/10 w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -434,7 +520,7 @@ export default function AdminDashboard() {
                                 <div>
                                     <h3 className="text-white font-bold mb-4 border-b border-white/10 pb-2">Cursos Publicados</h3>
                                     <div className="space-y-3">
-                                        {selectedAsesor.cursos.map((curso, idx) => (
+                                        {currentModalCourses.map((curso, idx) => (
                                             <div key={idx} className="flex justify-between items-center bg-slate-950/30 p-3 rounded-lg border border-white/5">
                                                 <div><p className="text-white font-medium line-clamp-1">{curso.titulo}</p><p className="text-xs text-slate-500">{curso.inscritos} inscritos</p></div>
                                                 <span className="text-emerald-400 font-mono text-sm font-bold">${curso.costo}</span>
@@ -442,6 +528,11 @@ export default function AdminDashboard() {
                                         ))}
                                         {selectedAsesor.cursos.length === 0 && <p className="text-slate-500 text-sm italic">Sin cursos.</p>}
                                     </div>
+                                    {selectedAsesor.cursos.length > itemsPerModalPage && (
+                                        <div className="mt-4 flex justify-center">
+                                            <Pagination itemsPerPage={itemsPerModalPage} totalItems={selectedAsesor.cursos.length} paginate={setCurrentPageAsesorCursos} currentPage={currentPageAsesorCursos} />
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <h3 className="text-white font-bold mb-4 border-b border-white/10 pb-2">Historial de Asesorías</h3>
